@@ -143,3 +143,9 @@ class HutbeService:
         """Calculate reading time in minutes based on word count."""
         words = len(content.split())
         return max(1, words // 200)  # Average 200 words per minute
+    
+    @staticmethod
+    async def get_hutbe_count(db: AsyncSession) -> int:
+        """Get total count of hutbeler in database."""
+        result = await db.execute(select(func.count(Hutbe.id)))
+        return result.scalar()
