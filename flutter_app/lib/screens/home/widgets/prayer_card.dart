@@ -42,16 +42,37 @@ class _PrayerCardState extends State<PrayerCard> {
   }
 
   void _updateCountdown() {
-    // Simplified countdown or just display static validation for now to fix build
-    // The previous logic relied on nextPrayerTime which was removed.
-    // Re-implementing simplified logic would require current time check against all times.
-    
     if (widget.prayerTimings == null) return;
     
-    // For now, let's keep it simple to ensure compilation.
-    // We can re-enable full logic later.
+    final now = DateTime.now();
+    final nextPrayerTime = widget.prayerTimings!.nextPrayerTime;
+    
+    // Parse next prayer time
+    final parts = nextPrayerTime.split(':');
+    if (parts.length != 2) {
+      setState(() {
+        _countdown = '';
+      });
+      return;
+    }
+    
+    final hour = int.tryParse(parts[0]) ?? 0;
+    final minute = int.tryParse(parts[1]) ?? 0;
+    
+    var nextPrayer = DateTime(now.year, now.month, now.day, hour, minute);
+    
+    // If the prayer time has passed today, it's tomorrow
+    if (nextPrayer.isBefore(now)) {
+      nextPrayer = nextPrayer.add(const Duration(days: 1));
+    }
+    
+    final difference = nextPrayer.difference(now);
+    final hours = difference.inHours;
+    final minutes = difference.inMinutes % 60;
+    final seconds = difference.inSeconds % 60;
+    
     setState(() {
-      _countdown = ''; 
+      _countdown = '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
     });
   }
 
@@ -63,6 +84,9 @@ class _PrayerCardState extends State<PrayerCard> {
 
     final prayers = widget.prayerTimings!.allPrayers;
     final turkishNames = PrayerTimings.turkishNames;
+    
+    // Prayer names in order for comparison
+    const prayerNamesOrder = ['Imsak', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -116,7 +140,7 @@ class _PrayerCardState extends State<PrayerCard> {
                         const Text('⏱', style: TextStyle(fontSize: 12)),
                         const SizedBox(width: 6),
                         Text(
-                          'Sıradaki: ${turkishNames[widget.prayerTimings!.nextPrayerName] ?? ''}',
+                          'Sıradaki: ${turkishNames[widget.prayerTimings!.nextPrayerName] ?? widget.prayerTimings!.nextPrayerName}',
                           style: const TextStyle(
                             color: AppColors.gold,
                             fontSize: 12,
@@ -134,16 +158,11 @@ class _PrayerCardState extends State<PrayerCard> {
               ...prayers.asMap().entries.map((entry) {
                 final index = entry.key;
                 final prayerTime = entry.value;
-                final prayerName = widget.prayerTimings!.allPrayers[index].name; // Using helper method result
-                final prayerTimeStr = widget.prayerTimings!.allPrayers[index].time;
+                final prayerName = prayerTime.name;
+                final prayerTimeStr = prayerTime.time;
                 
-                // Determine if this is the next prayer. This is tricky without the logic in model.
-                // For UI simplicity, let's just show the list. Highlighting next prayer requires calc.
-                // We'll skip highlighting for a second to fix the build, or simple logic:
-                // If we had nextPrayerName from parent/model, we could use it.
-                // Let's implement a simple check or just render for now.
-                
-                final isNext = false; // TODO: Implement next prayer check if needed here or pass from parent
+                // Determine if this is the next prayer
+                final isNext = widget.prayerTimings!.nextPrayerName == prayerNamesOrder[index];
                 
                 return Column(
                   children: [
@@ -202,8 +221,7 @@ class _PrayerCardState extends State<PrayerCard> {
                     const Text('⏰', style: TextStyle(fontSize: 16)),
                     const SizedBox(width: 8),
                     Text(
-                      // For now, simpler text since we removed nextPrayerName from model to fix build
-                      'Vakitler Yükleniyor...', 
+                      _countdown.isNotEmpty ? _countdown : 'Hesaplanıyor...',
                       style: const TextStyle(
                         color: AppColors.dark,
                         fontSize: 14,

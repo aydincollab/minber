@@ -115,7 +115,7 @@ class ApiService {
     
     if (lat != null && lng != null) {
       // Get by coordinates (Aladhan API)
-      uri = Uri.parse('http://api.aladhan.com/v1/timings/$dateStr').replace(
+      uri = Uri.parse('https://api.aladhan.com/v1/timings/$dateStr').replace(
         queryParameters: {
           'latitude': lat.toString(),
           'longitude': lng.toString(),
@@ -124,7 +124,7 @@ class ApiService {
       );
     } else if (city != null) {
       // Get by city
-      uri = Uri.parse('http://api.aladhan.com/v1/timingsByCity/$dateStr').replace(
+      uri = Uri.parse('https://api.aladhan.com/v1/timingsByCity/$dateStr').replace(
         queryParameters: {
           'city': city,
           'country': country ?? 'Turkey',
@@ -140,16 +140,26 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final timingsStart = data['data']['timings'];
+        final timingsRaw = data['data']['timings'];
         
-        // Aladhan API returns HH:mm format, so we can use it directly
+        // Helper function to clean timezone suffix from time strings
+        String cleanTime(String time) {
+          // Remove timezone info like " (EET)" or " (EEST)"
+          return time.split(' ')[0].trim();
+        }
+        
+        // Aladhan API returns HH:mm format, but may include timezone
         return PrayerTimings(
-          fajr: timingsStart['Fajr'],
-          sunrise: timingsStart['Sunrise'],
-          dhuhr: timingsStart['Dhuhr'],
-          asr: timingsStart['Asr'],
-          maghrib: timingsStart['Maghrib'],
-          isha: timingsStart['Isha'],
+          imsak: cleanTime(timingsRaw['Imsak'] ?? timingsRaw['Fajr'] ?? '05:00'),
+          fajr: cleanTime(timingsRaw['Fajr'] ?? '05:00'),
+          sunrise: cleanTime(timingsRaw['Sunrise'] ?? '06:30'),
+          dhuhr: cleanTime(timingsRaw['Dhuhr'] ?? '13:00'),
+          asr: cleanTime(timingsRaw['Asr'] ?? '16:30'),
+          maghrib: cleanTime(timingsRaw['Maghrib'] ?? '19:30'),
+          isha: cleanTime(timingsRaw['Isha'] ?? '21:00'),
+          date: data['data']['date']?['readable'] as String?,
+          hijriDate: data['data']['date']?['hijri']?['date'] as String?,
+          location: city,
         );
       } else {
         throw Exception('Failed to load prayer times: ${response.statusCode}');
@@ -158,6 +168,7 @@ class ApiService {
       debugPrint('Error fetching prayer times: $e');
       // Fallback data if API fails
       return PrayerTimings(
+        imsak: '04:50',
         fajr: '05:00',
         sunrise: '06:30',
         dhuhr: '13:00',

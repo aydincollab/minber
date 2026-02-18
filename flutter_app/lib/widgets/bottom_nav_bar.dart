@@ -31,11 +31,11 @@ class BottomNavBar extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, '🏠', 'Ana Sayfa'),
-              _buildNavItem(1, '📖', 'Hutbeler'),
-              _buildNavItem(2, '🕌', 'Vakitler'),
-              _buildNavItem(3, '🔖', 'Kaydedilen'),
-              _buildNavItem(4, '👤', 'Profil'),
+              Expanded(child: _buildNavItem(0, '🏠', 'Ana Sayfa')),
+              Expanded(child: _buildNavItem(1, '📖', 'Hutbeler')),
+              Expanded(child: _buildNavItem(2, '🕌', 'Vakitler')),
+              Expanded(child: _buildNavItem(3, '🔖', 'Kaydedilen')),
+              Expanded(child: _buildNavItem(4, '👤', 'Profil')),
             ],
           ),
         ),
@@ -50,7 +50,7 @@ class BottomNavBar extends StatelessWidget {
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -65,15 +65,17 @@ class BottomNavBar extends StatelessWidget {
               child: Text(
                 emoji,
                 style: TextStyle(
-                  fontSize: isActive ? 24 : 22,
+                  fontSize: isActive ? 22 : 20,
                 ),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 9,
                 color: isActive ? AppColors.gold : AppColors.textMuted,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),

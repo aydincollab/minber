@@ -132,7 +132,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     final timings = _prayerTimings!;
 
     final prayers = [
-      {'name': 'İmsak', 'time': timings.fajr},
+      {'name': 'İmsak', 'time': timings.imsak},
       {'name': 'Güneş', 'time': timings.sunrise},
       {'name': 'Öğle', 'time': timings.dhuhr},
       {'name': 'İkindi', 'time': timings.asr},
@@ -162,12 +162,12 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     final timings = _prayerTimings!;
 
     final prayers = [
-      {'name': 'İmsak', 'time': timings.fajr.time},
-      {'name': 'Güneş', 'time': timings.sunrise.time},
-      {'name': 'Öğle', 'time': timings.dhuhr.time},
-      {'name': 'İkindi', 'time': timings.asr.time},
-      {'name': 'Akşam', 'time': timings.maghrib.time},
-      {'name': 'Yatsı', 'time': timings.isha.time},
+      {'name': 'İmsak', 'time': timings.imsak},
+      {'name': 'Güneş', 'time': timings.sunrise},
+      {'name': 'Öğle', 'time': timings.dhuhr},
+      {'name': 'İkindi', 'time': timings.asr},
+      {'name': 'Akşam', 'time': timings.maghrib},
+      {'name': 'Yatsı', 'time': timings.isha},
     ];
 
     for (var prayer in prayers) {

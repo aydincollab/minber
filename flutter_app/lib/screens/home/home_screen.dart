@@ -248,9 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // Hero Section with Prayer Card
             Stack(
               children: [
-                HeroSection(
-                  onSettingsTap: () => _onNavigationTap(4),
-                ),
+                const HeroSection(),
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 120,
                   left: 0,
