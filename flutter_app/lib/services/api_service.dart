@@ -5,8 +5,12 @@ import '../models/hutbe.dart';
 import '../models/prayer_time.dart';
 
 class ApiService {
-  // Change this to your backend URL
-  static const String baseUrl = 'http://localhost:8000/api/v1';
+  // Production URL (Railway)
+  static const String _prodUrl = 'https://minber-production.up.railway.app/api/v1';
+  // Development URL (Android emulator localhost)
+  static const String _devUrl = 'http://10.0.2.2:8000/api/v1';
+  
+  static String get baseUrl => kReleaseMode ? _prodUrl : _devUrl;
   
   // Hutbe endpoints
   Future<List<HutbeListItem>> getHutbeler({
