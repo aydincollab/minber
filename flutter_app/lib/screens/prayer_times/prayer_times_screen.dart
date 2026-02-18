@@ -141,9 +141,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     ];
 
     for (int i = prayers.length - 1; i >= 0; i--) {
-      // time is already "HH:mm" string
-      final prayerTimeStr = prayers[i]['time']!;
-      final prayerTime = _parseTimeString(prayerTimeStr);
+      final prayerTime = _parseTimeString(prayers[i]['time']!);
       if (prayerTime != null) {
         if (now.hour > prayerTime.hour ||
             (now.hour == prayerTime.hour && now.minute >= prayerTime.minute)) {
@@ -152,7 +150,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       }
     }
 
-    return 'İmsak';
+    // Before first prayer (İmsak) — previous day's last prayer
+    return 'Yatsı';
   }
 
   String? _getNextPrayer() {
@@ -180,7 +179,8 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       }
     }
 
-    return 'İmsak'; // Next day
+    // All prayers passed — next is tomorrow's İmsak
+    return 'İmsak (yarın)';
   }
 
   TimeOfDay? _parseTimeString(String timeString) {

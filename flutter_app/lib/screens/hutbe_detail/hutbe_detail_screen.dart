@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
+import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
 import '../../models/hutbe.dart';
 import '../../services/api_service.dart';
@@ -8,6 +9,7 @@ import '../../services/tts_service.dart';
 import '../../services/favorites_service.dart';
 import '../../services/share_service.dart';
 import '../../services/local_database.dart';
+import '../../providers/preferences_provider.dart';
 import '../../widgets/favorite_button.dart';
 import 'widgets/hutbe_content.dart';
 import 'widgets/reading_progress.dart';
@@ -192,6 +194,10 @@ class _HutbeDetailScreenState extends State<HutbeDetailScreen> {
 
   void _startTts() {
     if (_hutbe == null) return;
+    
+    // Apply speed from preferences
+    final preferences = Provider.of<PreferencesProvider>(context, listen: false);
+    _ttsService.setSpeed(preferences.ttsSpeed);
     
     if (_ttsService.isPlaying) {
       _ttsService.pause();

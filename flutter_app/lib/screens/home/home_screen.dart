@@ -173,6 +173,18 @@ class _HomeScreenState extends State<HomeScreen> {
         _recentHutbeler = hutbeler;
         _isLoading = false;
       });
+      
+      // If no featured hutbe, use first recent hutbe as featured
+      if (_featuredHutbe == null && hutbeler.isNotEmpty) {
+        try {
+          final firstHutbe = await _apiService.getHutbeById(hutbeler.first.id);
+          setState(() {
+            _featuredHutbe = firstHutbe;
+          });
+        } catch (e) {
+          debugPrint('Error loading fallback featured hutbe: $e');
+        }
+      }
     } catch (e) {
       debugPrint('Error loading recent hutbeler: $e');
       setState(() {
