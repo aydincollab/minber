@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
 from functools import lru_cache
 from typing import List
 
@@ -9,21 +10,21 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://minber_user:minber_password@localhost:5432/minber_db"
     
-    @property
-    def async_database_url(self) -> str:
-        """Convert DATABASE_URL to async format for SQLAlchemy."""
-        url = self.DATABASE_URL
-        # Railway provides postgresql:// but we need postgresql+asyncpg://
-        if url.startswith("postgresql://"):
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        elif url.startswith("postgres://"):
-            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-        return url
+    @field_validator('DATABASE_URL')
+    @classmethod
+    def fix_database_url(cls, v: str) -> str:
+        """Fix DATABASE_URL if it starts with postgres:// (Railway format)"""
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
     
     # Application
     ENVIRONMENT: str = "development"
     SECRET_KEY: str = "your-secret-key-change-in-production"
-    DEBUG: bool = True
+    DEBUG: bool = False
+    PORT: int = 8000
     
     # API
     API_V1_PREFIX: str = "/api/v1"
@@ -31,7 +32,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     
     # CORS
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:8080"
+    ALLOWED_ORIGINS: str = "*"
     
     @property
     def allowed_origins_list(self) -> List[str]:
@@ -39,7 +40,7 @@ class Settings(BaseSettings):
     
     # Scraper
     SCRAPER_ENABLED: bool = True
-    DIYANET_BASE_URL: str = "https://diyanet.gov.tr"
+    DIYANET_BASE_URL: str = "https://dinhizmetleri.diyanet.gov.tr"
     
     class Config:
         env_file = ".env"
