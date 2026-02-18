@@ -341,12 +341,12 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     if (_prayerTimings == null) return const SizedBox.shrink();
 
     final prayers = [
-      {'name': 'İmsak', 'time': _prayerTimings!.fajr.time, 'icon': '🌑'},
-      {'name': 'Güneş', 'time': _prayerTimings!.sunrise.time, 'icon': '🌅'},
-      {'name': 'Öğle', 'time': _prayerTimings!.dhuhr.time, 'icon': '☀️'},
-      {'name': 'İkindi', 'time': _prayerTimings!.asr.time, 'icon': '🌤️'},
-      {'name': 'Akşam', 'time': _prayerTimings!.maghrib.time, 'icon': '🌆'},
-      {'name': 'Yatsı', 'time': _prayerTimings!.isha.time, 'icon': '🌙'},
+      {'name': 'İmsak', 'time': _prayerTimings!.imsak, 'icon': '🌑'},
+      {'name': 'Güneş', 'time': _prayerTimings!.sunrise, 'icon': '🌅'},
+      {'name': 'Öğle', 'time': _prayerTimings!.dhuhr, 'icon': '☀️'},
+      {'name': 'İkindi', 'time': _prayerTimings!.asr, 'icon': '🌤️'},
+      {'name': 'Akşam', 'time': _prayerTimings!.maghrib, 'icon': '🌆'},
+      {'name': 'Yatsı', 'time': _prayerTimings!.isha, 'icon': '🌙'},
     ];
 
     final currentPrayer = _getCurrentPrayer();
