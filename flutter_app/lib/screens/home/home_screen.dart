@@ -164,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 SearchBarWidget(
                   onSearch: (query) {
                     // TODO: Implement search
-                    print('Search: $query');
+                    debugPrint('Search: $query');
                   },
                 ),
                 
@@ -184,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     if (_featuredHutbe != null) {
                       // TODO: Navigate to hutbe detail
-                      print('Open featured hutbe: ${_featuredHutbe!.id}');
+                      debugPrint('Open featured hutbe: ${_featuredHutbe!.id}');
                     }
                   },
                 ),
@@ -202,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 CategoryTags(
                   onCategorySelected: (category) {
                     // TODO: Filter by category
-                    print('Category selected: $category');
+                    debugPrint('Category selected: $category');
                   },
                 ),
                 
@@ -221,7 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   years: _years,
                   onYearTap: (year) {
                     // TODO: Filter by year
-                    print('Year selected: $year');
+                    debugPrint('Year selected: $year');
                   },
                 ),
                 
@@ -240,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   hutbeler: _recentHutbeler,
                   onHutbeTap: (id) {
                     // TODO: Navigate to hutbe detail
-                    print('Open hutbe: $id');
+                    debugPrint('Open hutbe: $id');
                   },
                 ),
                 
@@ -261,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _currentIndex = index;
                 });
                 // TODO: Navigate to other screens
-                print('Navigate to index: $index');
+                debugPrint('Navigate to index: $index');
               },
             ),
           ),

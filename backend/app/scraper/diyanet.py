@@ -3,7 +3,10 @@ from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
 from datetime import datetime
 import re
+import logging
 from app.services.hutbe_service import HutbeService
+
+logger = logging.getLogger(__name__)
 
 
 class DiyanetScraper:
@@ -52,11 +55,11 @@ class DiyanetScraper:
                     if hutbe_data:
                         hutbeler.append(hutbe_data)
                 except Exception as e:
-                    print(f"Error parsing hutbe item: {e}")
+                    logger.error(f"Error parsing hutbe item: {e}")
                     continue
             
         except Exception as e:
-            print(f"Error scraping hutbe list: {e}")
+            logger.error(f"Error scraping hutbe list: {e}")
         
         return hutbeler
     
@@ -86,7 +89,7 @@ class DiyanetScraper:
                 'url': DiyanetScraper.BASE_URL + link if not link.startswith('http') else link,
             }
         except Exception as e:
-            print(f"Error in _parse_hutbe_item: {e}")
+            logger.error(f"Error in _parse_hutbe_item: {e}")
             return None
     
     @staticmethod
@@ -127,7 +130,7 @@ class DiyanetScraper:
             }
             
         except Exception as e:
-            print(f"Error scraping hutbe detail: {e}")
+            logger.error(f"Error scraping hutbe detail: {e}")
             return None
     
     @staticmethod
@@ -176,7 +179,7 @@ class DiyanetScraper:
         from app.schemas.hutbe import HutbeCreate
         from datetime import date as date_type
         
-        print(f"Starting scraper for year {year or 'current'}...")
+        logger.info(f"Starting scraper for year {year or 'current'}...")
         
         # Get list of hutbeler
         hutbe_list = DiyanetScraper.scrape_hutbe_list(year)
@@ -208,11 +211,11 @@ class DiyanetScraper:
                 await HutbeService.create_hutbe(db, hutbe_create)
                 saved_count += 1
                 
-                print(f"Saved hutbe: {hutbe_data['title'][:50]}...")
+                logger.info(f"Saved hutbe: {hutbe_data['title'][:50]}...")
                 
             except Exception as e:
-                print(f"Error saving hutbe: {e}")
+                logger.error(f"Error saving hutbe: {e}")
                 continue
         
-        print(f"Scraping completed. Saved {saved_count} hutbeler.")
+        logger.info(f"Scraping completed. Saved {saved_count} hutbeler.")
         return saved_count
