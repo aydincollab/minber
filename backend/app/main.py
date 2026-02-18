@@ -26,6 +26,30 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized")
     
+    # Seed data kontrolü - veritabanı boşsa seed hutbeleri yükle
+    try:
+        from app.services.hutbe_service import HutbeService
+        from app.seed_data import SEED_HUTBELER
+        from app.schemas.hutbe import HutbeCreate
+        from app.database import AsyncSessionLocal
+        
+        async with AsyncSessionLocal() as db:
+            count = await HutbeService.get_hutbe_count(db)
+            if count == 0:
+                logger.info("Database is empty. Loading seed hutbeler...")
+                for hutbe_data in SEED_HUTBELER:
+                    try:
+                        hutbe_create = HutbeCreate(**hutbe_data)
+                        await HutbeService.create_hutbe(db, hutbe_create)
+                    except Exception as e:
+                        logger.error(f"Error seeding hutbe '{hutbe_data.get('title', 'unknown')}': {e}")
+                await db.commit()
+                logger.info(f"Seeded {len(SEED_HUTBELER)} hutbeler successfully.")
+            else:
+                logger.info(f"Database already contains {count} hutbeler. Skipping seed.")
+    except Exception as e:
+        logger.error(f"Error during seed data check: {e}")
+    
     # Start scheduler if enabled
     if settings.SCRAPER_ENABLED:
         start_scheduler()
