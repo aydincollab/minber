@@ -198,65 +198,69 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHomeTab() {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Hero Section with Prayer Card
-          Stack(
-            children: [
-              const HeroSection(),
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 120,
-                left: 0,
-                right: 0,
-                child: PrayerCard(
-                  prayerTimings: _prayerTimings,
-                  city: _city,
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Search Bar
-          SearchBarWidget(
-            onSearch: (query) {
-              // Navigate to hutbe list with search
-              setState(() {
-                _currentIndex = 1;
-              });
-              _pageController.jumpToPage(1);
-            },
-          ),
-          
-          // Ad Banner
-          const AdBannerWidget(),
-          
-          // Featured Hutbe
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Text(
-              'Bu Haftanın Hutbesi',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ),
-          FeaturedHutbeCard(
-            hutbe: _featuredHutbe,
-            onTap: () {
-              if (_featuredHutbe != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => HutbeDetailScreen(
-                      hutbeId: _featuredHutbe!.id,
-                    ),
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      color: AppColors.gold,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Hero Section with Prayer Card
+            Stack(
+              children: [
+                const HeroSection(),
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 120,
+                  left: 0,
+                  right: 0,
+                  child: PrayerCard(
+                    prayerTimings: _prayerTimings,
+                    city: _city,
                   ),
-                );
-              }
-            },
-          ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Search Bar
+            SearchBarWidget(
+              onSearch: (query) {
+                // Navigate to hutbe list with search
+                setState(() {
+                  _currentIndex = 1;
+                });
+                _pageController.jumpToPage(1);
+              },
+            ),
+            
+            // Ad Banner
+            const AdBannerWidget(),
+            
+            // Featured Hutbe
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Text(
+                'Bu Haftanın Hutbesi',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+            ),
+            FeaturedHutbeCard(
+              hutbe: _featuredHutbe,
+              onTap: () {
+                if (_featuredHutbe != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => HutbeDetailScreen(
+                        hutbeId: _featuredHutbe!.id,
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
           
           const SizedBox(height: 32),
           
@@ -326,6 +330,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 100), // Space for bottom nav
         ],
       ),
+    ),
     );
   }
 }

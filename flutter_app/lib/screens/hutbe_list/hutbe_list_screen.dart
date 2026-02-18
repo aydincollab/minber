@@ -406,17 +406,20 @@ class _HutbeListScreenState extends State<HutbeListScreen> {
         ),
         child: Row(
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Text(
-                  _getIconForCategory(hutbe.category),
-                  style: const TextStyle(fontSize: 20),
+            Hero(
+              tag: 'hutbe_icon_${hutbe.id}',
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    _getIconForCategory(hutbe.category),
+                    style: const TextStyle(fontSize: 20),
+                  ),
                 ),
               ),
             ),
