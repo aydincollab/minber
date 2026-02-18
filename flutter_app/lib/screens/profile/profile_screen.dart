@@ -497,7 +497,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'Tema',
             subtitle: themeLabel,
             onTap: _showThemePicker,
-            isDark: isDark,
           ),
 
           _buildSettingItem(
@@ -505,7 +504,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'Konum Ayarı',
             subtitle: _selectedCity,
             onTap: _showCityPicker,
-            isDark: isDark,
           ),
 
           _buildSettingItem(
@@ -513,7 +511,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'Namaz Vakti Hesaplama',
             subtitle: _prayerMethod,
             onTap: _showPrayerMethodPicker,
-            isDark: isDark,
           ),
 
           _buildSettingItem(
@@ -530,7 +527,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _savePreference('notifications', value.toString());
               },
             ),
-            isDark: isDark,
           ),
 
           _buildSettingItem(
@@ -538,7 +534,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'TTS Hızı',
             subtitle: '${_ttsSpeed.toStringAsFixed(1)}x',
             onTap: _showTtsSpeedSlider,
-            isDark: isDark,
           ),
 
           Divider(
@@ -552,7 +547,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'Uygulama Hakkında',
             subtitle: 'Versiyon $_appVersion',
             onTap: _showAboutDialog,
-            isDark: isDark,
           ),
 
           _buildSettingItem(
@@ -568,7 +562,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               );
             },
-            isDark: isDark,
           ),
 
           _buildSettingItem(
@@ -578,7 +571,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () {
               _shareService.shareApp();
             },
-            isDark: isDark,
           ),
         ],
       ),
@@ -589,10 +581,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required IconData icon,
     required String title,
     required String subtitle,
-    required bool isDark,
     VoidCallback? onTap,
     Widget? trailing,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return ListTile(
       leading: Container(
         width: 40,
