@@ -86,7 +86,6 @@ class PrayerTimings {
   // Turkish prayer names
   static const Map<String, String> turkishNames = {
     'Imsak': 'İmsak',
-    'Fajr': 'Sabah',
     'Sunrise': 'Güneş',
     'Dhuhr': 'Öğle',
     'Asr': 'İkindi',

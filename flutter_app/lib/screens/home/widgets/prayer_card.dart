@@ -84,6 +84,9 @@ class _PrayerCardState extends State<PrayerCard> {
 
     final prayers = widget.prayerTimings!.allPrayers;
     final turkishNames = PrayerTimings.turkishNames;
+    
+    // Prayer names in order for comparison
+    const prayerNamesOrder = ['Imsak', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -159,7 +162,7 @@ class _PrayerCardState extends State<PrayerCard> {
                 final prayerTimeStr = prayerTime.time;
                 
                 // Determine if this is the next prayer
-                final isNext = widget.prayerTimings!.nextPrayerName == ['Imsak', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'][index];
+                final isNext = widget.prayerTimings!.nextPrayerName == prayerNamesOrder[index];
                 
                 return Column(
                   children: [
