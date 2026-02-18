@@ -2,6 +2,20 @@
 
 All notable changes to the Minber project will be documented in this file.
 
+## [1.0.1] - 2024-02-18
+
+### Security
+- **CRITICAL**: Updated `fastapi` from 0.109.0 to 0.109.1
+  - Fixes ReDoS vulnerability in Content-Type header parsing
+- **CRITICAL**: Updated `python-multipart` from 0.0.6 to 0.0.22
+  - Fixes arbitrary file write vulnerability (CVE)
+  - Fixes DoS via malformed multipart/form-data boundary
+  - Fixes Content-Type header ReDoS vulnerability
+  - Addresses 3 security vulnerabilities
+
+### Changed
+- All dependencies now at patched versions with no known vulnerabilities
+
 ## [1.0.0] - 2024-02-18
 
 ### Added - Backend (Python/FastAPI)
