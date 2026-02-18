@@ -150,12 +150,26 @@ class FeaturedHutbeCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       height: 200,
       decoration: BoxDecoration(
-        color: AppColors.darkMid.withOpacity(0.5),
+        gradient: AppColors.featuredCardGradient,
         borderRadius: BorderRadius.circular(24),
       ),
-      child: const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.gold,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              '🕌',
+              style: TextStyle(fontSize: 48),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Hutbe Yükleniyor...',
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 14,
+              ),
+            ),
+          ],
         ),
       ),
     );

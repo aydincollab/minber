@@ -96,29 +96,51 @@ async def health_check():
     return {"status": "healthy"}
 
 
-@app.post(f"{settings.API_V1_PREFIX}/scraper/run")
-async def manual_scraper_run(
-    year: int = None,
-    limit: int = 5,
-    db = Depends(get_db),
-):
-    """
-    Manually trigger scraper (admin only - add auth later).
+@app.get(f"{settings.API_V1_PREFIX}/scraper/test")
+async def test_scraper():
+    """Test scraper without saving to DB — just return what it finds."""
+    import traceback
     
-    Args:
-        year: Year to scrape (optional)
-        limit: Maximum number of hutbeler to scrape
-    """
     try:
-        count = await DiyanetScraper.scrape_and_save_hutbeler(db, year=year, limit=limit)
+        # Try to fetch the page first
+        import requests
+        url = f"{DiyanetScraper.BASE_URL}/kategoriler/yayinlarimiz/hutbeler/türkçe"
+        response = requests.get(url, headers=DiyanetScraper.HEADERS, timeout=15)
+        
+        page_info = {
+            "status_code": response.status_code,
+            "content_length": len(response.content),
+            "content_type": response.headers.get("content-type", ""),
+            "first_500_chars": response.text[:500],
+        }
+        
+        # Try scraping
+        hutbe_list = DiyanetScraper.scrape_hutbe_list()
+        
         return {
-            "status": "success",
-            "message": f"Scraped and saved {count} hutbeler",
-            "count": count,
+            "page_info": page_info,
+            "hutbe_count": len(hutbe_list),
+            "hutbeler": hutbe_list[:5],  # First 5 for inspection
+            "scraper_status": "working" if hutbe_list else "no_results",
         }
     except Exception as e:
-        logger.error(f"Error in manual scraper: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+            "scraper_status": "error",
+        }
+
+
+@app.post(f"{settings.API_V1_PREFIX}/scraper/run")
+async def manual_scraper_run(
+    db = Depends(get_db),
+):
+    """Manually trigger the scraper."""
+    try:
+        count = await DiyanetScraper.scrape_and_save_hutbeler(db, limit=50)
+        return {"status": "completed", "saved_count": count}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
 
 
 if __name__ == "__main__":
