@@ -40,6 +40,25 @@ dependencies:
   
   # UI
   cupertino_icons: ^1.0.6
+  
+  # Text-to-Speech
+  flutter_tts: ^4.0.2
+  
+  # Local Database
+  sqflite: ^2.3.0
+  path_provider: ^2.1.1
+  
+  # Sharing
+  share_plus: ^7.2.1
+  
+  # Connectivity
+  connectivity_plus: ^5.0.2
+  
+  # Shimmer effects
+  shimmer: ^3.0.0
+  
+  # Package info
+  package_info_plus: ^5.0.1
 
 dev_dependencies:
   flutter_test:
