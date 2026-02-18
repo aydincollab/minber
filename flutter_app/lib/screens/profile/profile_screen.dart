@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
+import '../../providers/theme_provider.dart';
 import '../../services/tts_service.dart';
 import '../../services/local_database.dart';
 import '../../services/share_service.dart';
@@ -329,12 +331,116 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showThemePicker() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? AppColors.darkMid
+          : AppColors.lightSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tema Seçimi',
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.textLight
+                      : AppColors.textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildThemeOption(
+                context,
+                title: 'Koyu Tema',
+                icon: Icons.dark_mode,
+                isSelected: themeProvider.isDarkMode,
+                onTap: () {
+                  themeProvider.setThemeMode(ThemeMode.dark);
+                  Navigator.pop(context);
+                },
+              ),
+              _buildThemeOption(
+                context,
+                title: 'Açık Tema',
+                icon: Icons.light_mode,
+                isSelected: themeProvider.isLightMode,
+                onTap: () {
+                  themeProvider.setThemeMode(ThemeMode.light);
+                  Navigator.pop(context);
+                },
+              ),
+              _buildThemeOption(
+                context,
+                title: 'Sistem Teması',
+                icon: Icons.brightness_auto,
+                isSelected: themeProvider.isSystemMode,
+                onTap: () {
+                  themeProvider.setThemeMode(ThemeMode.system);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildThemeOption(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isSelected ? AppColors.gold : (isDark ? AppColors.textMuted : AppColors.textDarkMuted),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isSelected
+              ? AppColors.gold
+              : (isDark ? AppColors.textLight : AppColors.textDark),
+        ),
+      ),
+      trailing: isSelected
+          ? const Icon(Icons.check, color: AppColors.gold)
+          : null,
+      onTap: onTap,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    String themeLabel = 'Koyu';
+    if (themeProvider.isLightMode) {
+      themeLabel = 'Açık';
+    } else if (themeProvider.isSystemMode) {
+      themeLabel = 'Sistem';
+    }
+    
     return Scaffold(
-      backgroundColor: AppColors.dark,
+      backgroundColor: isDark ? AppColors.dark : AppColors.lightBg,
       appBar: AppBar(
-        backgroundColor: AppColors.darkMid,
+        backgroundColor: isDark ? AppColors.darkMid : AppColors.lightSurface,
         title: const Text('Profil & Ayarlar'),
       ),
       body: ListView(
@@ -359,10 +465,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Hoş Geldiniz',
                   style: TextStyle(
-                    color: AppColors.textLight,
+                    color: isDark ? AppColors.textLight : AppColors.textDark,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -370,8 +476,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 8),
                 Text(
                   _selectedCity,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
+                  style: TextStyle(
+                    color: isDark ? AppColors.textMuted : AppColors.textDarkMuted,
                     fontSize: 14,
                   ),
                 ),
@@ -379,9 +485,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          const Divider(color: AppColors.textMuted, height: 1, thickness: 0.5),
+          Divider(
+            color: isDark ? AppColors.textMuted : AppColors.textDarkMuted,
+            height: 1,
+            thickness: 0.5,
+          ),
 
           // Settings
+          _buildSettingItem(
+            icon: Icons.palette,
+            title: 'Tema',
+            subtitle: themeLabel,
+            onTap: _showThemePicker,
+          ),
+
           _buildSettingItem(
             icon: Icons.location_on,
             title: 'Konum Ayarı',
@@ -419,7 +536,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: _showTtsSpeedSlider,
           ),
 
-          const Divider(color: AppColors.textMuted, height: 1, thickness: 0.5),
+          Divider(
+            color: isDark ? AppColors.textMuted : AppColors.textDarkMuted,
+            height: 1,
+            thickness: 0.5,
+          ),
 
           _buildSettingItem(
             icon: Icons.info_outline,
@@ -463,6 +584,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     VoidCallback? onTap,
     Widget? trailing,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return ListTile(
       leading: Container(
         width: 40,
@@ -479,23 +602,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          color: AppColors.textLight,
+        style: TextStyle(
+          color: isDark ? AppColors.textLight : AppColors.textDark,
           fontSize: 15,
           fontWeight: FontWeight.w600,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
-          color: AppColors.textMuted,
+        style: TextStyle(
+          color: isDark ? AppColors.textMuted : AppColors.textDarkMuted,
           fontSize: 13,
         ),
       ),
       trailing: trailing ??
-          const Icon(
+          Icon(
             Icons.chevron_right,
-            color: AppColors.textMuted,
+            color: isDark ? AppColors.textMuted : AppColors.textDarkMuted,
           ),
       onTap: onTap,
     );

@@ -22,11 +22,18 @@ class AppColors {
   static const Color dark = Color(0xFF0D1F14);
   static const Color darkMid = Color(0xFF142B1C);
 
-  // Text colors
+  // Text colors (dark mode)
   static const Color textLight = Color(0xFFF0E8D5);
   static const Color textMuted = Color(0xFFA8C0A8);
 
-  // Gradient colors
+  // Light mode colors
+  static const Color lightBg = Color(0xFFFAF8F3);
+  static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color lightCard = Color(0xFFF5EFE0);
+  static const Color textDark = Color(0xFF1A1A2E);
+  static const Color textDarkMuted = Color(0xFF6B7280);
+
+  // Gradient colors (dark mode)
   static const LinearGradient heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -42,5 +49,19 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [emeraldMid, darkMid],
+  );
+
+  // Light mode gradients
+  static const LinearGradient heroGradientLight = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    stops: [0.0, 0.5, 1.0],
+    colors: [emeraldLight, emeraldMid, emerald],
+  );
+
+  static const LinearGradient featuredCardGradientLight = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [emeraldLight, emerald],
   );
 }

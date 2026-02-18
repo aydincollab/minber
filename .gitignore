@@ -106,6 +106,14 @@ key.properties
 flutter_*.log
 **/doc/api/
 **/ios/Flutter/.last_build_id
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/.generated/
+**/ios/Runner.xcworkspace/
+**/ios/Runner.xcodeproj/project.xcworkspace/
+**/ios/Runner.xcodeproj/xcuserdata/
 .flutter-plugins
 .flutter-plugins-dependencies
 

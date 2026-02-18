@@ -122,6 +122,124 @@ class AppTheme {
     );
   }
 
+  static ThemeData get lightTheme {
+    return ThemeData(
+      brightness: Brightness.light,
+      primaryColor: AppColors.gold,
+      scaffoldBackgroundColor: AppColors.lightBg,
+      colorScheme: const ColorScheme.light(
+        primary: AppColors.gold,
+        secondary: AppColors.emerald,
+        surface: AppColors.lightSurface,
+        background: AppColors.lightBg,
+        onPrimary: AppColors.textDark,
+        onSecondary: AppColors.lightSurface,
+        onSurface: AppColors.textDark,
+        onBackground: AppColors.textDark,
+      ),
+      
+      // Text Theme
+      textTheme: TextTheme(
+        // Headings - Playfair Display
+        displayLarge: GoogleFonts.playfairDisplay(
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+          color: AppColors.textDark,
+        ),
+        displayMedium: GoogleFonts.playfairDisplay(
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          color: AppColors.textDark,
+        ),
+        displaySmall: GoogleFonts.playfairDisplay(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          color: AppColors.textDark,
+        ),
+        headlineLarge: GoogleFonts.playfairDisplay(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: AppColors.textDark,
+        ),
+        headlineMedium: GoogleFonts.playfairDisplay(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textDark,
+        ),
+        headlineSmall: GoogleFonts.playfairDisplay(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textDark,
+        ),
+        
+        // Body - DM Sans
+        bodyLarge: GoogleFonts.dmSans(
+          fontSize: 16,
+          color: AppColors.textDark,
+        ),
+        bodyMedium: GoogleFonts.dmSans(
+          fontSize: 14,
+          color: AppColors.textDark,
+        ),
+        bodySmall: GoogleFonts.dmSans(
+          fontSize: 12,
+          color: AppColors.textDarkMuted,
+        ),
+        
+        // Labels
+        labelLarge: GoogleFonts.dmSans(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textDark,
+        ),
+        labelMedium: GoogleFonts.dmSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textDark,
+        ),
+        labelSmall: GoogleFonts.dmSans(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textDarkMuted,
+        ),
+      ),
+      
+      // App Bar Theme
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.textDark),
+        titleTextStyle: GoogleFonts.playfairDisplay(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: AppColors.textDark,
+        ),
+      ),
+      
+      // Card Theme
+      cardTheme: CardTheme(
+        color: AppColors.lightSurface,
+        elevation: 2,
+        shadowColor: AppColors.textDarkMuted.withOpacity(0.1),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      
+      // Icon Theme
+      iconTheme: const IconThemeData(
+        color: AppColors.textDark,
+        size: 24,
+      ),
+      
+      // Divider Theme
+      dividerTheme: DividerThemeData(
+        color: AppColors.textDarkMuted.withOpacity(0.2),
+        thickness: 1,
+      ),
+    );
+  }
+
   // Text style for Arabic text (Amiri font)
   static TextStyle arabicTextStyle({
     double fontSize = 16,
