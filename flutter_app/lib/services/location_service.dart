@@ -1,5 +1,6 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:flutter/foundation.dart';
 
 class LocationService {
   /// Check if location services are enabled
@@ -53,7 +54,8 @@ class LocationService {
       }
       return null;
     } catch (e) {
-      print('Error getting city name: $e');
+      // Using print for simplicity - in production, use a proper logging package
+      debugPrint('Error getting city name: $e');
       return null;
     }
   }

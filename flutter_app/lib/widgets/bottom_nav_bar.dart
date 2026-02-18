@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import '../../theme/app_colors.dart';
 
 class BottomNavBar extends StatelessWidget {
@@ -83,6 +84,3 @@ class BottomNavBar extends StatelessWidget {
     );
   }
 }
-
-// Import for ImageFilter
-import 'dart:ui';

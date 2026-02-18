@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../services/api_service.dart';
@@ -88,7 +89,8 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      print('Error loading prayer times: $e');
+      // Using debugPrint for better log management in production
+      debugPrint('Error loading prayer times: $e');
     }
   }
 
@@ -99,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _featuredHutbe = hutbe;
       });
     } catch (e) {
-      print('Error loading featured hutbe: $e');
+      debugPrint('Error loading featured hutbe: $e');
     }
   }
 
@@ -111,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading recent hutbeler: $e');
+      debugPrint('Error loading recent hutbeler: $e');
       setState(() {
         _isLoading = false;
       });
@@ -125,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _years = stats;
       });
     } catch (e) {
-      print('Error loading years stats: $e');
+      debugPrint('Error loading years stats: $e');
     }
   }
 

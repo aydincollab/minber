@@ -65,9 +65,14 @@ class DiyanetScraper:
         """Parse a single hutbe item from the list."""
         try:
             # These selectors are placeholders and need to be adjusted
-            title = item.select_one('.title')?.get_text(strip=True)
-            date_str = item.select_one('.date')?.get_text(strip=True)
-            link = item.select_one('a')?.get('href')
+            title_elem = item.select_one('.title')
+            title = title_elem.get_text(strip=True) if title_elem else None
+            
+            date_elem = item.select_one('.date')
+            date_str = date_elem.get_text(strip=True) if date_elem else None
+            
+            link_elem = item.select_one('a')
+            link = link_elem.get('href') if link_elem else None
             
             if not title or not link:
                 return None
@@ -94,8 +99,11 @@ class DiyanetScraper:
             soup = BeautifulSoup(response.content, 'html.parser')
             
             # These selectors are placeholders
-            title = soup.select_one('.hutbe-title, h1')?.get_text(strip=True)
-            content = soup.select_one('.hutbe-content, .content')?.get_text(strip=True)
+            title_elem = soup.select_one('.hutbe-title, h1')
+            title = title_elem.get_text(strip=True) if title_elem else None
+            
+            content_elem = soup.select_one('.hutbe-content, .content')
+            content = content_elem.get_text(strip=True) if content_elem else None
             
             if not title or not content:
                 return None

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import '../models/hutbe.dart';
 import '../models/prayer_time.dart';
 
@@ -46,7 +47,7 @@ class ApiService {
       }
       return null;
     } catch (e) {
-      print('Error fetching featured hutbe: $e');
+      debugPrint('Error fetching featured hutbe: $e');
       return null;
     }
   }

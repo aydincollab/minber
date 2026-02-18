@@ -1,5 +1,5 @@
 import httpx
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 from datetime import datetime
 
 
@@ -101,7 +101,7 @@ class PrayerService:
         }
     
     @staticmethod
-    def get_next_prayer(timings: Dict[str, str]) -> tuple[str, str]:
+    def get_next_prayer(timings: Dict[str, str]) -> Tuple[str, str]:
         """
         Determine the next prayer and its time.
         

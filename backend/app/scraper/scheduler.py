@@ -24,7 +24,8 @@ async def scheduled_scrape_job():
 
 def start_scheduler():
     """Start the scheduler with weekly cron job."""
-    # Run every Thursday at 23:00 (11 PM)
+    # Run every Thursday at 23:00 (11 PM) UTC
+    # Note: Adjust timezone if needed based on deployment location
     scheduler.add_job(
         scheduled_scrape_job,
         trigger=CronTrigger(day_of_week='thu', hour=23, minute=0),
@@ -34,7 +35,7 @@ def start_scheduler():
     )
     
     scheduler.start()
-    logger.info("Scheduler started. Hutbe scraper will run every Thursday at 23:00.")
+    logger.info("Scheduler started. Hutbe scraper will run every Thursday at 23:00 UTC.")
 
 
 def stop_scheduler():
