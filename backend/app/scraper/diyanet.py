@@ -5,6 +5,7 @@ from datetime import datetime
 import re
 import logging
 import time
+import json
 from app.services.hutbe_service import HutbeService
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,9 @@ class DiyanetScraper:
     """Scraper for Diyanet İşleri Başkanlığı hutbeler."""
     
     BASE_URL = "https://dinhizmetleri.diyanet.gov.tr"
+    
+    # PDF extraction constants
+    MAX_TITLE_LENGTH = 100  # Maximum length for extracted title from PDF first line
     
     # Required headers for requests
     HEADERS = {
@@ -50,6 +54,60 @@ class DiyanetScraper:
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Pattern 0 (PRIMARY): SharePoint inline JSON data
+            # Diyanet uses SharePoint which embeds list data as JSON in the page source
+            page_text = response.text
+            
+            # Find all JSON-like objects in page source that have Tarih and Title
+            # Allow nested braces (e.g., in UniqueId field values)
+            json_block_pattern = re.compile(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}')
+            for block_match in json_block_pattern.finditer(page_text):
+                block = block_match.group(0)
+                if '"Tarih"' in block and '"Title"' in block:
+                    try:
+                        # Fix SharePoint unicode escapes before parsing
+                        # Note: Only fixing \u002f as it's the most common escape in paths
+                        # json.loads() will handle most other unicode sequences automatically
+                        fixed = block.replace('\\u002f', '/')
+                        item_data = json.loads(fixed)
+                        
+                        tarih = item_data.get('Tarih', '')
+                        title = item_data.get('Title', '')
+                        
+                        # Skip if no title or date doesn't match expected format
+                        if not title or not re.match(r'\d{2}\.\d{2}\.\d{4}', tarih):
+                            continue
+                        
+                        pdf_path = item_data.get('PDF', '')
+                        word_path = item_data.get('Word', '')
+                        ses_path = item_data.get('Ses', '')
+                        
+                        hutbe_date = DiyanetScraper._parse_date(tarih)
+                        
+                        # Build full URLs
+                        pdf_url = f"{DiyanetScraper.BASE_URL}{pdf_path}" if pdf_path else None
+                        word_url = f"{DiyanetScraper.BASE_URL}{word_path}" if word_path else None
+                        ses_url = f"{DiyanetScraper.BASE_URL}{ses_path}" if ses_path else None
+                        
+                        hutbeler.append({
+                            'title': title,
+                            'date': hutbe_date,
+                            'url': pdf_url,  # Primary content URL is the PDF
+                            'pdf_url': pdf_url,
+                            'word_url': word_url,
+                            'audio_url': ses_url,
+                            'sharepoint_id': item_data.get('ID', ''),
+                        })
+                    except json.JSONDecodeError as e:
+                        logger.debug(f"Failed to parse JSON block: {e}")
+                        continue
+                    except Exception as e:
+                        logger.debug(f"Error processing JSON block: {e}")
+                        continue
+            
+            if hutbeler:
+                logger.info(f"Found {len(hutbeler)} items using Pattern 0 (SharePoint JSON)")
             
             # Try Pattern 1: Card-based layout
             items = soup.find_all("div", class_="card")
@@ -236,15 +294,22 @@ class DiyanetScraper:
     
     @staticmethod
     def scrape_hutbe_detail(url: str) -> Optional[Dict]:
-        """Scrape full hutbe content from detail page."""
+        """Scrape full hutbe content. Handles both HTML pages and PDF files."""
         if not url or url == DiyanetScraper.BASE_URL:
             return None
             
         try:
             logger.info(f"Fetching hutbe detail from: {url}")
-            response = requests.get(url, headers=DiyanetScraper.HEADERS, timeout=15)
+            response = requests.get(url, headers=DiyanetScraper.HEADERS, timeout=30)
             response.raise_for_status()
             
+            content_type = response.headers.get('content-type', '').lower()
+            
+            # If it's a PDF, extract text
+            if 'pdf' in content_type or url.lower().endswith('.pdf'):
+                return DiyanetScraper._extract_text_from_pdf(response.content, url)
+            
+            # Otherwise try HTML parsing (keep existing logic as fallback)
             soup = BeautifulSoup(response.content, 'html.parser')
             
             # Try multiple title selectors
@@ -315,6 +380,69 @@ class DiyanetScraper:
             return datetime.now().date()
     
     @staticmethod
+    def _extract_text_from_pdf(pdf_bytes: bytes, source_url: str) -> Optional[Dict]:
+        """Extract text content from a PDF file."""
+        try:
+            import io
+            
+            # Try pdfplumber first
+            try:
+                import pdfplumber
+                with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                    text_parts = []
+                    for page in pdf.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text_parts.append(page_text)
+                    content = "\n\n".join(text_parts)
+            except ImportError:
+                # Fallback to PyPDF2
+                try:
+                    from PyPDF2 import PdfReader
+                    reader = PdfReader(io.BytesIO(pdf_bytes))
+                    text_parts = []
+                    for page in reader.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text_parts.append(page_text)
+                    content = "\n\n".join(text_parts)
+                except ImportError:
+                    logger.error("No PDF library available. Install pdfplumber or PyPDF2.")
+                    return None
+            
+            if not content or len(content) < 50:
+                logger.warning(f"PDF had no extractable text: {source_url}")
+                return None
+            
+            # Clean up the content
+            content = re.sub(r'\n{3,}', '\n\n', content)  # Remove excessive newlines
+            content = content.strip()
+            
+            # Try to extract title from first line
+            lines = content.split('\n')
+            title = lines[0].strip() if lines else None
+            
+            # If first line is too long to be a title, skip it
+            if title and len(title) > DiyanetScraper.MAX_TITLE_LENGTH:
+                title = None  # Too long to be a title
+            
+            summary = content[:200] + "..." if len(content) > 200 else content
+            category = DiyanetScraper._determine_category(content)
+            reading_time = HutbeService.calculate_reading_time(content)
+            
+            return {
+                'title': title,
+                'content': content,
+                'summary': summary,
+                'category': category,
+                'reading_time_minutes': reading_time,
+                'source_url': source_url,
+            }
+        except Exception as e:
+            logger.error(f"Error extracting text from PDF: {e}")
+            return None
+    
+    @staticmethod
     def _determine_category(text: str) -> str:
         """Determine hutbe category based on keywords."""
         text_lower = text.lower()
@@ -361,23 +489,21 @@ class DiyanetScraper:
                     time.sleep(1)
                 
                 # Try to get full content if URL is available
-                if hutbe_item.get('url'):
+                if hutbe_item.get('pdf_url'):
+                    detail = DiyanetScraper.scrape_hutbe_detail(hutbe_item['pdf_url'])
+                elif hutbe_item.get('url'):
                     detail = DiyanetScraper.scrape_hutbe_detail(hutbe_item['url'])
-                    if detail:
-                        # Merge with list data
-                        hutbe_data = {
-                            **hutbe_item,
-                            **detail,
-                        }
-                    else:
-                        # Use minimal data from list
-                        hutbe_data = hutbe_item.copy()
-                        if 'content' not in hutbe_data:
-                            hutbe_data['content'] = f"{hutbe_data['title']}\n\nHutbe içeriği yakında eklenecektir."
-                        if 'category' not in hutbe_data:
-                            hutbe_data['category'] = DiyanetScraper._determine_category(hutbe_data['title'])
                 else:
-                    # No URL, use list data only
+                    detail = None
+                
+                if detail:
+                    # Merge with list data
+                    hutbe_data = {
+                        **hutbe_item,
+                        **detail,
+                    }
+                else:
+                    # Use minimal data from list
                     hutbe_data = hutbe_item.copy()
                     if 'content' not in hutbe_data:
                         hutbe_data['content'] = f"{hutbe_data['title']}\n\nHutbe içeriği yakında eklenecektir."
