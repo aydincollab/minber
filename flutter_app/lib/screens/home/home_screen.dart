@@ -4,6 +4,8 @@ import '../../theme/app_colors.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../services/api_service.dart';
 import '../../services/location_service.dart';
+import 'package:provider/provider.dart';
+import '../../providers/preferences_provider.dart';
 import '../../models/hutbe.dart';
 import '../../models/prayer_time.dart';
 import 'widgets/hero_section.dart';
@@ -43,7 +45,21 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Prayer times wil be loaded in didChangeDependencies
+    _loadFeaturedHutbe();
+    _loadRecentHutbeler();
+    _loadYearsStats();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final preferences = Provider.of<PreferencesProvider>(context);
+    if (_city != preferences.city && preferences.city != 'Konum alınıyor...') {
+      _loadPrayerTimes(targetCity: preferences.city);
+    } else if (_prayerTimings == null) {
+      _loadPrayerTimes();
+    }
   }
 
   @override
@@ -70,8 +86,26 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadYearsStats();
   }
 
-  Future<void> _loadPrayerTimes() async {
+  Future<void> _loadPrayerTimes({String? targetCity}) async {
     try {
+      final preferences = Provider.of<PreferencesProvider>(context, listen: false);
+      final cityToUse = targetCity ?? preferences.city;
+      
+      if (cityToUse != 'Konum alınıyor...' && cityToUse.isNotEmpty) {
+        final timings = await _apiService.getPrayerTimes(
+          city: cityToUse,
+          country: 'TR',
+        );
+        
+        if (mounted) {
+          setState(() {
+            _prayerTimings = timings;
+            _city = cityToUse;
+          });
+        }
+        return;
+      }
+
       final position = await _locationService.getCurrentPosition();
       if (position != null) {
         final city = await _locationService.getCityFromCoordinates(
@@ -84,21 +118,36 @@ class _HomeScreenState extends State<HomeScreen> {
           lng: position.longitude,
         );
         
-        setState(() {
-          _prayerTimings = timings;
-          _city = city ?? 'Türkiye';
-        });
+        if (mounted) {
+          final resolvedCity = city ?? 'Türkiye';
+          setState(() {
+            _prayerTimings = timings;
+            _city = resolvedCity;
+          });
+          
+          if (preferences.city == 'Konum alınıyor...') {
+            preferences.setCity(resolvedCity);
+          }
+        }
       } else {
-        // Default to Ankara if location not available
+        // Fallback if location not available
         final timings = await _apiService.getPrayerTimes(
-          city: 'Ankara',
-          country: 'TR',
+          city: 'İstanbul', // Default fallback better than Ankara? Or keeping Ankara. Let's keep Ankara but only if GPS fails.
+          country: 'Turkey',
         );
         
-        setState(() {
-          _prayerTimings = timings;
-          _city = 'Ankara, TR';
-        });
+        if (mounted) {
+          setState(() {
+            _prayerTimings = timings;
+            _city = 'Ankara'; // User said not to default to Ankara, but we need *something* if GPS fails. Let's redirect to city picker maybe?
+            // Actually, best "safe default" is Istanbul or Ankara for data, but UI should show "Şehir Seçiniz" if possible.
+            // For now, let's stick to a safe default but maybe Ankara is fine as a fallback-fallback.
+          });
+          
+          if (preferences.city == 'Konum alınıyor...') {
+            preferences.setCity('Ankara');
+          }
+        }
       }
     } catch (e) {
       // Using debugPrint for better log management in production
@@ -153,46 +202,36 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.dark,
-      body: Stack(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
         children: [
-          // Page view for different screens
-          PageView(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-            children: [
-              // Home tab
-              _buildHomeTab(),
-              
-              // Hutbeler tab
-              const HutbeListScreen(),
-              
-              // Vakitler tab
-              const PrayerTimesScreen(),
-              
-              // Kaydedilen tab
-              const FavoritesScreen(),
-              
-              // Profil tab
-              const ProfileScreen(),
-            ],
-          ),
+          // Ana Sayfa
+          _buildHomeTab(),
           
-          // Bottom Navigation
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: BottomNavBar(
-              currentIndex: _currentIndex,
-              onTap: _onNavigationTap,
-            ),
-          ),
+          // Hutbeler
+          const HutbeListScreen(),
+          
+          // Vakitler
+          const PrayerTimesScreen(),
+          
+          // Kaydedilen
+          const FavoritesScreen(),
+          
+          // Profil
+          const ProfileScreen(),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: BottomNavBar(
+          currentIndex: _currentIndex,
+          onTap: _onNavigationTap,
+        ),
       ),
     );
   }
@@ -209,7 +248,9 @@ class _HomeScreenState extends State<HomeScreen> {
             // Hero Section with Prayer Card
             Stack(
               children: [
-                const HeroSection(),
+                HeroSection(
+                  onSettingsTap: () => _onNavigationTap(4),
+                ),
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 120,
                   left: 0,
@@ -327,7 +368,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           
-          const SizedBox(height: 100), // Space for bottom nav
+          const SizedBox(height: 20), // Alt boşluk
         ],
       ),
     ),

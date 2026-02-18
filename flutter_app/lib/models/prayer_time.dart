@@ -16,54 +16,66 @@ class PrayerTime {
 }
 
 class PrayerTimings {
-  final PrayerTime fajr;
-  final PrayerTime dhuhr;
-  final PrayerTime asr;
-  final PrayerTime maghrib;
-  final PrayerTime isha;
-  final String date;
-  final String hijriDate;
-  final String location;
-  final String? nextPrayerName;
-  final String? nextPrayerTime;
+  final String fajr;
+  final String sunrise;
+  final String dhuhr;
+  final String asr;
+  final String maghrib;
+  final String isha;
 
   PrayerTimings({
     required this.fajr,
+    required this.sunrise,
     required this.dhuhr,
     required this.asr,
     required this.maghrib,
     required this.isha,
-    required this.date,
-    required this.hijriDate,
-    required this.location,
-    this.nextPrayerName,
-    this.nextPrayerTime,
   });
 
-  factory PrayerTimings.fromJson(Map<String, dynamic> json) {
-    final timings = json['timings'] as Map<String, dynamic>;
-    final dateInfo = json['date'] as Map<String, dynamic>;
-    final nextPrayer = json['next_prayer'] as Map<String, dynamic>?;
+  // Turkish aliases for compatibility
+  String get imsak => fajr;
+  String get gunes => sunrise;
+  String get ogle => dhuhr;
+  String get ikindi => asr;
+  String get aksam => maghrib;
+  String get yatsi => isha;
 
+  factory PrayerTimings.fromJson(Map<String, dynamic> json) {
+    // Check if we are parsing Aladhan API response directly or our own backend
+    // Aladhan API structure: data.timings.Fajr
+    // But here we might receive just the timings map if pre-processed
+    
+    // If it's a direct map of timings (from ApiService constructions)
+    if (json.containsKey('Fajr') || json.containsKey('Imsak')) {
+      return PrayerTimings(
+        fajr: (json['Fajr'] ?? json['Imsak'] ?? '') as String,
+        sunrise: (json['Sunrise'] ?? json['Gunes'] ?? '') as String,
+        dhuhr: (json['Dhuhr'] ?? json['Ogle'] ?? '') as String,
+        asr: (json['Asr'] ?? json['Ikindi'] ?? '') as String,
+        maghrib: (json['Maghrib'] ?? json['Aksam'] ?? '') as String,
+        isha: (json['Isha'] ?? json['Yatsi'] ?? '') as String,
+      );
+    }
+    
+    // Fallback or complex structure handling could go here if needed
     return PrayerTimings(
-      fajr: PrayerTime.fromJson('Fajr', timings['Fajr'] as String),
-      dhuhr: PrayerTime.fromJson('Dhuhr', timings['Dhuhr'] as String),
-      asr: PrayerTime.fromJson('Asr', timings['Asr'] as String),
-      maghrib: PrayerTime.fromJson('Maghrib', timings['Maghrib'] as String),
-      isha: PrayerTime.fromJson('Isha', timings['Isha'] as String),
-      date: dateInfo['readable'] as String,
-      hijriDate: dateInfo['hijri'] as String,
-      location: json['location'] as String? ?? '',
-      nextPrayerName: nextPrayer?['name'] as String?,
-      nextPrayerTime: nextPrayer?['time'] as String?,
+      fajr: '', sunrise: '', dhuhr: '', asr: '', maghrib: '', isha: '',
     );
   }
 
-  List<PrayerTime> get allPrayers => [fajr, dhuhr, asr, maghrib, isha];
+  List<PrayerTime> get allPrayers => [
+    PrayerTime(name: getTurkishName('Fajr'), time: fajr),
+    PrayerTime(name: getTurkishName('Sunrise'), time: sunrise),
+    PrayerTime(name: getTurkishName('Dhuhr'), time: dhuhr),
+    PrayerTime(name: getTurkishName('Asr'), time: asr),
+    PrayerTime(name: getTurkishName('Maghrib'), time: maghrib),
+    PrayerTime(name: getTurkishName('Isha'), time: isha),
+  ];
   
   // Turkish prayer names
   static const Map<String, String> turkishNames = {
     'Fajr': 'İmsak',
+    'Sunrise': 'Güneş',
     'Dhuhr': 'Öğle',
     'Asr': 'İkindi',
     'Maghrib': 'Akşam',

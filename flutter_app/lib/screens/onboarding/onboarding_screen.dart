@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_colors.dart';
+import '../../services/location_service.dart';
 import '../home/home_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -37,6 +38,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     setState(() {
       _currentPage = page;
     });
+  }
+
+  Future<void> _requestLocationAndFinish() async {
+    // Show loading indicator usually, but for now simple await
+    final locationService = LocationService(); // Instantiate directly or via GetIt
+    
+    // Request permission
+    await locationService.requestPermission();
+    
+    // Get position and city
+    final position = await locationService.getCurrentPosition();
+    if (position != null) {
+      final city = await locationService.getCityFromCoordinates(
+        position.latitude, 
+        position.longitude
+      );
+      
+      if (city != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('selected_city', city);
+      }
+    }
+    
+    // Complete onboarding regardless of success (if denied, default kicks in later or user sets manually)
+    _completeOnboarding();
   }
 
   Future<void> _completeOnboarding() async {
@@ -124,7 +150,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _nextPage,
+                  onPressed: () async {
+                    if (_currentPage == _pages.length - 1) {
+                      // Son sayfada konum izni iste ve şehri bul
+                      await _requestLocationAndFinish();
+                    } else {
+                      _nextPage();
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.gold,
                     foregroundColor: AppColors.dark,
@@ -134,7 +167,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                   child: Text(
-                    _currentPage == _pages.length - 1 ? 'Başla' : 'İleri',
+                    _currentPage == _pages.length - 1 ? 'Konumu Paylaş ve Başla' : 'İleri',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

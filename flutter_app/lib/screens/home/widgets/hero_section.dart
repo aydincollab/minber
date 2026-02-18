@@ -4,7 +4,14 @@ import '../../../theme/app_colors.dart';
 import '../../../widgets/animated_orb.dart';
 
 class HeroSection extends StatelessWidget {
-  const HeroSection({super.key});
+  final VoidCallback? onSettingsTap;
+  final VoidCallback? onNotificationsTap;
+  
+  const HeroSection({
+    super.key,
+    this.onSettingsTap,
+    this.onNotificationsTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -47,18 +54,6 @@ class HeroSection extends StatelessWidget {
                 // Logo
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: AppColors.goldGradient,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text(
-                        '🕌',
-                        style: TextStyle(fontSize: 24),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
                     RichText(
                       text: const TextSpan(
                         style: TextStyle(
@@ -75,15 +70,40 @@ class HeroSection extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.gold.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Text('⏱', style: TextStyle(fontSize: 12)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Sıradaki Vakit', // Placeholder until logic restored
+                            style: const TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
                 
                 // Icon buttons
                 Row(
                   children: [
-                    _buildIconButton(Icons.notifications_outlined),
+                    _buildIconButton(Icons.notifications_outlined, onNotificationsTap),
                     const SizedBox(width: 12),
-                    _buildIconButton(Icons.settings_outlined),
+                    _buildIconButton(Icons.settings_outlined, onSettingsTap),
                   ],
                 ),
               ],
@@ -94,25 +114,28 @@ class HeroSection extends StatelessWidget {
     );
   }
 
-  Widget _buildIconButton(IconData icon) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: AppColors.textLight.withOpacity(0.1),
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: AppColors.textMuted.withOpacity(0.2),
-          width: 1,
+  Widget _buildIconButton(IconData icon, VoidCallback? onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: AppColors.textLight.withOpacity(0.1),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: AppColors.textMuted.withOpacity(0.2),
+            width: 1,
+          ),
         ),
-      ),
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Icon(
-            icon,
-            size: 20,
-            color: AppColors.textLight,
+        child: ClipOval(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Icon(
+              icon,
+              size: 20,
+              color: AppColors.textLight,
+            ),
           ),
         ),
       ),

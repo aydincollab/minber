@@ -4,6 +4,8 @@ import '../../theme/app_colors.dart';
 import '../../models/prayer_time.dart';
 import '../../services/api_service.dart';
 import '../../services/location_service.dart';
+import 'package:provider/provider.dart';
+import '../../providers/preferences_provider.dart';
 
 class PrayerTimesScreen extends StatefulWidget {
   const PrayerTimesScreen({super.key});
@@ -24,15 +26,51 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadPrayerTimes();
+    // Initial load will be handled by didChangeDependencies
   }
 
-  Future<void> _loadPrayerTimes() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final preferences = Provider.of<PreferencesProvider>(context);
+    if (_city != preferences.city && preferences.city != 'Konum alınıyor...') {
+      // Şehir değişmiş, verileri yeniden yükle
+      _loadPrayerTimes(targetCity: preferences.city);
+    } else if (_prayerTimings == null) {
+      // İlk yükleme
+      _loadPrayerTimes();
+    }
+  }
+
+  Future<void> _loadPrayerTimes({String? targetCity}) async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
     });
 
     try {
+      final preferences = Provider.of<PreferencesProvider>(context, listen: false);
+      final cityToUse = targetCity ?? preferences.city;
+      
+      // Eğer belirli bir şehir seçilmişse (Ankara hariç veya kullanıcı özellikle seçmişse)
+      if (cityToUse != 'Konum alınıyor...' && cityToUse.isNotEmpty) {
+         final timings = await _apiService.getPrayerTimes(
+          city: cityToUse,
+          country: 'TR',
+        );
+
+        if (mounted) {
+          setState(() {
+            _prayerTimings = timings;
+            _city = cityToUse;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // GPS konumu kullan
       final position = await _locationService.getCurrentPosition();
       if (position != null) {
         final city = await _locationService.getCityFromCoordinates(
@@ -45,29 +83,45 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           lng: position.longitude,
         );
 
-        setState(() {
-          _prayerTimings = timings;
-          _city = city ?? 'Türkiye';
-          _isLoading = false;
-        });
+        if (mounted) {
+          final resolvedCity = city ?? 'Türkiye';
+          setState(() {
+            _prayerTimings = timings;
+            _city = resolvedCity;
+            _isLoading = false;
+          });
+          
+          // Provider'ı güncelle (eğer "Konum alınıyor..." ise)
+          if (preferences.city == 'Konum alınıyor...') {
+            preferences.setCity(resolvedCity);
+          }
+        }
       } else {
-        // Default to Ankara
+        // Fallback to Ankara
         final timings = await _apiService.getPrayerTimes(
           city: 'Ankara',
           country: 'TR',
         );
 
-        setState(() {
-          _prayerTimings = timings;
-          _city = 'Ankara, TR';
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _prayerTimings = timings;
+            _city = 'Ankara';
+            _isLoading = false;
+          });
+          
+          if (preferences.city == 'Konum alınıyor...') {
+            preferences.setCity('Ankara');
+          }
+        }
       }
     } catch (e) {
       debugPrint('Error loading prayer times: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -87,7 +141,9 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     ];
 
     for (int i = prayers.length - 1; i >= 0; i--) {
-      final prayerTime = _parseTimeString(prayers[i]['time'] as String);
+      // time is already "HH:mm" string
+      final prayerTimeStr = prayers[i]['time']!;
+      final prayerTime = _parseTimeString(prayerTimeStr);
       if (prayerTime != null) {
         if (now.hour > prayerTime.hour ||
             (now.hour == prayerTime.hour && now.minute >= prayerTime.minute)) {
@@ -106,16 +162,16 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     final timings = _prayerTimings!;
 
     final prayers = [
-      {'name': 'İmsak', 'time': timings.fajr},
-      {'name': 'Güneş', 'time': timings.sunrise},
-      {'name': 'Öğle', 'time': timings.dhuhr},
-      {'name': 'İkindi', 'time': timings.asr},
-      {'name': 'Akşam', 'time': timings.maghrib},
-      {'name': 'Yatsı', 'time': timings.isha},
+      {'name': 'İmsak', 'time': timings.fajr.time},
+      {'name': 'Güneş', 'time': timings.sunrise.time},
+      {'name': 'Öğle', 'time': timings.dhuhr.time},
+      {'name': 'İkindi', 'time': timings.asr.time},
+      {'name': 'Akşam', 'time': timings.maghrib.time},
+      {'name': 'Yatsı', 'time': timings.isha.time},
     ];
 
     for (var prayer in prayers) {
-      final prayerTime = _parseTimeString(prayer['time'] as String);
+      final prayerTime = _parseTimeString(prayer['time']!);
       if (prayerTime != null) {
         if (now.hour < prayerTime.hour ||
             (now.hour == prayerTime.hour && now.minute < prayerTime.minute)) {
@@ -142,12 +198,20 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     return null;
   }
 
+  String _formatDate() {
+    try {
+      return DateFormat('d MMMM yyyy EEEE', 'tr_TR').format(_selectedDate);
+    } catch (e) {
+      return DateFormat('d MMM yyyy').format(_selectedDate);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.dark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.darkMid,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         title: const Text('Namaz Vakitleri'),
         actions: [
           IconButton(
@@ -169,7 +233,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                   color: AppColors.gold,
                   backgroundColor: AppColors.darkMid,
                   child: ListView(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 40),
                     children: [
                       // Location card
                       _buildLocationCard(),
@@ -212,7 +276,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            DateFormat('d MMMM yyyy EEEE', 'tr_TR').format(_selectedDate),
+            _formatDate(),
             style: const TextStyle(
               color: AppColors.textMuted,
               fontSize: 14,
@@ -277,12 +341,12 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     if (_prayerTimings == null) return const SizedBox.shrink();
 
     final prayers = [
-      {'name': 'İmsak', 'time': _prayerTimings!.fajr, 'icon': '🌑'},
-      {'name': 'Güneş', 'time': _prayerTimings!.sunrise, 'icon': '🌅'},
-      {'name': 'Öğle', 'time': _prayerTimings!.dhuhr, 'icon': '☀️'},
-      {'name': 'İkindi', 'time': _prayerTimings!.asr, 'icon': '🌤️'},
-      {'name': 'Akşam', 'time': _prayerTimings!.maghrib, 'icon': '🌆'},
-      {'name': 'Yatsı', 'time': _prayerTimings!.isha, 'icon': '🌙'},
+      {'name': 'İmsak', 'time': _prayerTimings!.fajr.time, 'icon': '🌑'},
+      {'name': 'Güneş', 'time': _prayerTimings!.sunrise.time, 'icon': '🌅'},
+      {'name': 'Öğle', 'time': _prayerTimings!.dhuhr.time, 'icon': '☀️'},
+      {'name': 'İkindi', 'time': _prayerTimings!.asr.time, 'icon': '🌤️'},
+      {'name': 'Akşam', 'time': _prayerTimings!.maghrib.time, 'icon': '🌆'},
+      {'name': 'Yatsı', 'time': _prayerTimings!.isha.time, 'icon': '🌙'},
     ];
 
     final currentPrayer = _getCurrentPrayer();
