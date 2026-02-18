@@ -57,7 +57,8 @@ class DiyanetScraper:
             page_text = response.text
             
             # Find all JSON-like objects in page source that have Tarih and Title
-            json_block_pattern = re.compile(r'\{[^{}]{50,2000}\}')
+            # Allow nested braces (e.g., in UniqueId field values)
+            json_block_pattern = re.compile(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}')
             for block_match in json_block_pattern.finditer(page_text):
                 block = block_match.group(0)
                 if '"Tarih"' in block and '"Title"' in block:
