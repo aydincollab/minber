@@ -8,6 +8,7 @@ from app.database import init_db, get_db
 from app.api.routes import hutbe, prayer
 from app.scraper.scheduler import start_scheduler, stop_scheduler
 from app.scraper.diyanet import DiyanetScraper
+from app.services.hutbe_service import HutbeService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +26,25 @@ async def lifespan(app: FastAPI):
     # Initialize database
     await init_db()
     logger.info("Database initialized")
+    
+    # Auto-seed if database is empty
+    try:
+        async for db in get_db():
+            try:
+                hutbe_count = await HutbeService.get_hutbe_count(db)
+                if hutbe_count == 0:
+                    logger.info("Database is empty, loading seed data...")
+                    from app.seed_data import load_seed_data
+                    await load_seed_data(db)
+                    logger.info("Seed data loaded successfully")
+                else:
+                    logger.info(f"Database already contains {hutbe_count} hutbeler")
+            except Exception as e:
+                logger.warning(f"Could not check/load seed data: {e}")
+            finally:
+                break
+    except Exception as e:
+        logger.warning(f"Seed data check failed: {e}")
     
     # Start scheduler if enabled
     if settings.SCRAPER_ENABLED:
