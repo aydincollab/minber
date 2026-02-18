@@ -26,6 +26,20 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized")
     
+    # Auto-load seed data if database is empty
+    from sqlalchemy import text
+    async for db in get_db():
+        try:
+            result = await db.execute(text("SELECT COUNT(*) FROM hutbes"))
+            count = result.scalar()
+            if count == 0:
+                from app.seed_data import load_seed_data
+                await load_seed_data(db)
+                logger.info(f"Seed data loaded successfully")
+        except Exception as e:
+            logger.warning(f"Could not check/load seed data: {e}")
+        break
+    
     # Start scheduler if enabled
     if settings.SCRAPER_ENABLED:
         start_scheduler()

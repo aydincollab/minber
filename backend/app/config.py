@@ -12,7 +12,13 @@ class Settings(BaseSettings):
     # Application
     ENVIRONMENT: str = "development"
     SECRET_KEY: str = "your-secret-key-change-in-production"
-    DEBUG: bool = True
+    DEBUG: bool = False
+    PORT: int = 8000
+    
+    def model_post_init(self, __context):
+        """Fix DATABASE_URL if it starts with postgres://"""
+        if self.DATABASE_URL.startswith("postgres://"):
+            self.DATABASE_URL = self.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
     
     # API
     API_V1_PREFIX: str = "/api/v1"
@@ -20,7 +26,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     
     # CORS
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:8080"
+    ALLOWED_ORIGINS: str = "*"
     
     @property
     def allowed_origins_list(self) -> List[str]:

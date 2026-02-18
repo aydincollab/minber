@@ -5,8 +5,13 @@ import '../models/hutbe.dart';
 import '../models/prayer_time.dart';
 
 class ApiService {
-  // Change this to your backend URL
-  static const String baseUrl = 'http://localhost:8000/api/v1';
+  // TODO: Update _prodUrl after Railway deploy
+  // After deploying to Railway, replace this with your actual Railway URL
+  // Example: 'https://minber-production.up.railway.app/api/v1'
+  static const String _prodUrl = 'https://minber-production.up.railway.app/api/v1';
+  static const String _devUrl = 'http://10.0.2.2:8000/api/v1';
+  
+  static String get baseUrl => kReleaseMode ? _prodUrl : _devUrl;
   
   // Hutbe endpoints
   Future<List<HutbeListItem>> getHutbeler({

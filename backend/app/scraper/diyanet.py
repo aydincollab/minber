@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 class DiyanetScraper:
     """Scraper for Diyanet İşleri Başkanlığı hutbeler."""
     
-    BASE_URL = "https://diyanet.gov.tr"
+    BASE_URL = "https://dinhizmetleri.diyanet.gov.tr"
+    HUTBE_LIST_URL = "/kategoriler/yayinlarimiz/hutbeler/türkçe"
     
     # Category keywords for automatic categorization
     CATEGORY_KEYWORDS = {
@@ -37,12 +38,20 @@ class DiyanetScraper:
         # may be different and would need to be analyzed.
         try:
             # Example URL structure - needs to be verified
-            url = f"{DiyanetScraper.BASE_URL}/tr-TR/Kurumsal/Detay/29/hutbeler"
+            url = f"{DiyanetScraper.BASE_URL}{DiyanetScraper.HUTBE_LIST_URL}"
             if year:
                 url += f"?year={year}"
             
-            response = requests.get(url, timeout=10)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
+            
+            # Add rate limiting
+            import time
+            time.sleep(2)
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
@@ -96,8 +105,16 @@ class DiyanetScraper:
     def scrape_hutbe_detail(url: str) -> Optional[Dict]:
         """Scrape full hutbe content from detail page."""
         try:
-            response = requests.get(url, timeout=10)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
+            
+            # Add rate limiting
+            import time
+            time.sleep(2)
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
