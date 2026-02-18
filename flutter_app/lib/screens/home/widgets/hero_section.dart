@@ -4,12 +4,10 @@ import '../../../theme/app_colors.dart';
 import '../../../widgets/animated_orb.dart';
 
 class HeroSection extends StatelessWidget {
-  final VoidCallback? onSettingsTap;
   final VoidCallback? onNotificationsTap;
   
   const HeroSection({
     super.key,
-    this.onSettingsTap,
     this.onNotificationsTap,
   });
 
@@ -98,14 +96,8 @@ class HeroSection extends StatelessWidget {
                   ],
                 ),
                 
-                // Icon buttons
-                Row(
-                  children: [
-                    _buildIconButton(Icons.notifications_outlined, onNotificationsTap),
-                    const SizedBox(width: 12),
-                    _buildIconButton(Icons.settings_outlined, onSettingsTap),
-                  ],
-                ),
+                // Icon button
+                _buildIconButton(Icons.notifications_outlined, onNotificationsTap),
               ],
             ),
           ),

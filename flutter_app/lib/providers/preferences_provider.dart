@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PreferencesProvider extends ChangeNotifier {
-  String _city = 'Ankara';
+  String _city = 'Konum alınıyor...';
   String _prayerMethod = 'Diyanet';
   bool _notificationsEnabled = true;
   double _ttsSpeed = 1.0;
@@ -19,7 +19,7 @@ class PreferencesProvider extends ChangeNotifier {
   Future<void> _loadPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _city = prefs.getString('city') ?? 'Ankara';
+      _city = prefs.getString('city') ?? 'Konum alınıyor...';
       _prayerMethod = prefs.getString('prayer_method') ?? 'Diyanet';
       _notificationsEnabled = (prefs.getString('notifications') ?? 'true') == 'true';
       
