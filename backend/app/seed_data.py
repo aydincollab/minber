@@ -1,6 +1,6 @@
 """Seed data for Minber database."""
 import logging
-from datetime import date
+from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.hutbe import HutbeCreate
 from app.services.hutbe_service import HutbeService
@@ -240,7 +240,6 @@ async def load_seed_data(db: AsyncSession) -> int:
             # Convert date string to date object
             hutbe_data_copy = hutbe_data.copy()
             if isinstance(hutbe_data_copy['date'], str):
-                from datetime import datetime
                 hutbe_data_copy['date'] = datetime.strptime(hutbe_data_copy['date'], '%Y-%m-%d').date()
             
             # Create hutbe schema

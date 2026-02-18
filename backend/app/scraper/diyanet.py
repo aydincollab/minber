@@ -4,6 +4,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import re
 import logging
+import time
 from app.services.hutbe_service import HutbeService
 
 logger = logging.getLogger(__name__)
@@ -49,8 +50,7 @@ class DiyanetScraper:
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             
-            # Add rate limiting
-            import time
+            # Add rate limiting (synchronous sleep is acceptable here as this is a background scraper)
             time.sleep(2)
             
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -112,8 +112,7 @@ class DiyanetScraper:
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             
-            # Add rate limiting
-            import time
+            # Add rate limiting (synchronous sleep is acceptable here as this is a background scraper)
             time.sleep(2)
             
             soup = BeautifulSoup(response.content, 'html.parser')
