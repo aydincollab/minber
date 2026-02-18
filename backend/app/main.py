@@ -111,7 +111,9 @@ async def test_scraper():
         # Count JSON blocks with Tarih and Title
         import re
         import json as json_module
-        json_blocks = re.findall(r'\{[^{}]{50,2000}\}', page_text)
+        # Use the same pattern as the scraper to find JSON blocks
+        json_block_pattern = re.compile(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}')
+        json_blocks = json_block_pattern.findall(page_text)
         hutbe_json_blocks = [b for b in json_blocks if '"Tarih"' in b and '"Title"' in b]
         
         # Parse first few for preview
@@ -128,8 +130,8 @@ async def test_scraper():
                     "audio": data.get("Ses"),
                     "id": data.get("ID"),
                 })
-            except:
-                previews.append({"raw": block[:200]})
+            except (json_module.JSONDecodeError, Exception) as e:
+                previews.append({"error": str(e), "raw": block[:200]})
         
         # Run actual scraper
         hutbe_list = DiyanetScraper.scrape_hutbe_list()

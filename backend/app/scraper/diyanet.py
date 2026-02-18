@@ -16,6 +16,9 @@ class DiyanetScraper:
     
     BASE_URL = "https://dinhizmetleri.diyanet.gov.tr"
     
+    # PDF extraction constants
+    MAX_TITLE_LENGTH = 100  # Maximum length for extracted title from PDF first line
+    
     # Required headers for requests
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -64,6 +67,8 @@ class DiyanetScraper:
                 if '"Tarih"' in block and '"Title"' in block:
                     try:
                         # Fix SharePoint unicode escapes before parsing
+                        # Note: Only fixing \u002f as it's the most common escape in paths
+                        # json.loads() will handle most other unicode sequences automatically
                         fixed = block.replace('\\u002f', '/')
                         item_data = json.loads(fixed)
                         
@@ -94,8 +99,11 @@ class DiyanetScraper:
                             'audio_url': ses_url,
                             'sharepoint_id': item_data.get('ID', ''),
                         })
-                    except (json.JSONDecodeError, Exception) as e:
-                        logger.debug(f"Skipping non-hutbe JSON block: {e}")
+                    except json.JSONDecodeError as e:
+                        logger.debug(f"Failed to parse JSON block: {e}")
+                        continue
+                    except Exception as e:
+                        logger.debug(f"Error processing JSON block: {e}")
                         continue
             
             if hutbeler:
@@ -414,8 +422,8 @@ class DiyanetScraper:
             lines = content.split('\n')
             title = lines[0].strip() if lines else None
             
-            # If first line looks like a title (short, no period at end)
-            if title and len(title) > 100:
+            # If first line is too long to be a title, skip it
+            if title and len(title) > DiyanetScraper.MAX_TITLE_LENGTH:
                 title = None  # Too long to be a title
             
             summary = content[:200] + "..." if len(content) > 200 else content
