@@ -14,6 +14,11 @@ import 'widgets/featured_hutbe_card.dart';
 import 'widgets/category_tags.dart';
 import 'widgets/year_slide_cards.dart';
 import 'widgets/recent_hutbe_list.dart';
+import '../hutbe_list/hutbe_list_screen.dart';
+import '../prayer_times/prayer_times_screen.dart';
+import '../favorites/favorites_screen.dart';
+import '../profile/profile_screen.dart';
+import '../hutbe_detail/hutbe_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,6 +30,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
   final LocationService _locationService = LocationService();
+  final PageController _pageController = PageController();
   
   int _currentIndex = 0;
   PrayerTimings? _prayerTimings;
@@ -38,6 +44,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -131,122 +143,43 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _onNavigationTap(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    _pageController.jumpToPage(index);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.dark,
       body: Stack(
         children: [
-          // Main content
-          SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Hero Section with Prayer Card
-                Stack(
-                  children: [
-                    const HeroSection(),
-                    Positioned(
-                      top: MediaQuery.of(context).padding.top + 120,
-                      left: 0,
-                      right: 0,
-                      child: PrayerCard(
-                        prayerTimings: _prayerTimings,
-                        city: _city,
-                      ),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 20),
-                
-                // Search Bar
-                SearchBarWidget(
-                  onSearch: (query) {
-                    // TODO: Implement search
-                    debugPrint('Search: $query');
-                  },
-                ),
-                
-                // Ad Banner
-                const AdBannerWidget(),
-                
-                // Featured Hutbe
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  child: Text(
-                    'Bu Haftanın Hutbesi',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ),
-                FeaturedHutbeCard(
-                  hutbe: _featuredHutbe,
-                  onTap: () {
-                    if (_featuredHutbe != null) {
-                      // TODO: Navigate to hutbe detail
-                      debugPrint('Open featured hutbe: ${_featuredHutbe!.id}');
-                    }
-                  },
-                ),
-                
-                const SizedBox(height: 32),
-                
-                // Categories
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Text(
-                    'Kategoriler',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ),
-                CategoryTags(
-                  onCategorySelected: (category) {
-                    // TODO: Filter by category
-                    debugPrint('Category selected: $category');
-                  },
-                ),
-                
-                const SizedBox(height: 32),
-                
-                // Years
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Text(
-                    'Yıllara Göre',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                YearSlideCards(
-                  years: _years,
-                  onYearTap: (year) {
-                    // TODO: Filter by year
-                    debugPrint('Year selected: $year');
-                  },
-                ),
-                
-                const SizedBox(height: 32),
-                
-                // Recent Hutbeler
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Text(
-                    'Son Hutbeler',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                RecentHutbeList(
-                  hutbeler: _recentHutbeler,
-                  onHutbeTap: (id) {
-                    // TODO: Navigate to hutbe detail
-                    debugPrint('Open hutbe: $id');
-                  },
-                ),
-                
-                const SizedBox(height: 100), // Space for bottom nav
-              ],
-            ),
+          // Page view for different screens
+          PageView(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            children: [
+              // Home tab
+              _buildHomeTab(),
+              
+              // Hutbeler tab
+              const HutbeListScreen(),
+              
+              // Vakitler tab
+              const PrayerTimesScreen(),
+              
+              // Kaydedilen tab
+              const FavoritesScreen(),
+              
+              // Profil tab
+              const ProfileScreen(),
+            ],
           ),
           
           // Bottom Navigation
@@ -256,15 +189,141 @@ class _HomeScreenState extends State<HomeScreen> {
             bottom: 0,
             child: BottomNavBar(
               currentIndex: _currentIndex,
-              onTap: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-                // TODO: Navigate to other screens
-                debugPrint('Navigate to index: $index');
-              },
+              onTap: _onNavigationTap,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeTab() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Hero Section with Prayer Card
+          Stack(
+            children: [
+              const HeroSection(),
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 120,
+                left: 0,
+                right: 0,
+                child: PrayerCard(
+                  prayerTimings: _prayerTimings,
+                  city: _city,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Search Bar
+          SearchBarWidget(
+            onSearch: (query) {
+              // Navigate to hutbe list with search
+              setState(() {
+                _currentIndex = 1;
+              });
+              _pageController.jumpToPage(1);
+            },
+          ),
+          
+          // Ad Banner
+          const AdBannerWidget(),
+          
+          // Featured Hutbe
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Text(
+              'Bu Haftanın Hutbesi',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ),
+          FeaturedHutbeCard(
+            hutbe: _featuredHutbe,
+            onTap: () {
+              if (_featuredHutbe != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => HutbeDetailScreen(
+                      hutbeId: _featuredHutbe!.id,
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Categories
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Text(
+              'Kategoriler',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ),
+          CategoryTags(
+            onCategorySelected: (category) {
+              // Navigate to hutbe list with category filter
+              setState(() {
+                _currentIndex = 1;
+              });
+              _pageController.jumpToPage(1);
+            },
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Years
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Text(
+              'Yıllara Göre',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ),
+          const SizedBox(height: 16),
+          YearSlideCards(
+            years: _years,
+            onYearTap: (year) {
+              // Navigate to hutbe list with year filter
+              setState(() {
+                _currentIndex = 1;
+              });
+              _pageController.jumpToPage(1);
+            },
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Recent Hutbeler
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Text(
+              'Son Hutbeler',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ),
+          const SizedBox(height: 16),
+          RecentHutbeList(
+            hutbeler: _recentHutbeler,
+            onHutbeTap: (id) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HutbeDetailScreen(hutbeId: id),
+                ),
+              );
+            },
+          ),
+          
+          const SizedBox(height: 100), // Space for bottom nav
         ],
       ),
     );
