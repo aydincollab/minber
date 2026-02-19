@@ -466,22 +466,47 @@ class DiyanetScraper:
 
     @staticmethod
     def _extract_text_from_pdf(pdf_bytes: bytes, source_url: str) -> Optional[Dict]:
-        """Extract text content from a PDF file, filtering out Arabic text."""
+        """
+        Extract text from Diyanet PDF files.
+        Diyanet hutbe PDFs use a 2-column layout — we extract left column then
+        right column for each page to avoid text from both columns interleaving.
+        """
         try:
             import io
-            
-            # Try pdfplumber first
+
+            raw_content = None
+
+            # Primary: pdfplumber with 2-column aware extraction
             try:
                 import pdfplumber
+                text_parts = []
                 with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-                    text_parts = []
                     for page in pdf.pages:
-                        page_text = page.extract_text()
-                        if page_text:
+                        width = page.width
+                        height = page.height
+
+                        # Split page vertically at the midpoint
+                        left_bbox  = (0,      0, width / 2, height)
+                        right_bbox = (width / 2, 0, width,    height)
+
+                        left_text  = page.crop(left_bbox).extract_text()  or ""
+                        right_text = page.crop(right_bbox).extract_text() or ""
+
+                        # Check if the page actually has 2 columns by comparing
+                        # content density; if right side is nearly empty, treat as 1-column
+                        if len(right_text.strip()) < 30:
+                            # Single-column page
+                            page_text = page.extract_text() or ""
+                        else:
+                            page_text = left_text + "\n\n" + right_text
+
+                        if page_text.strip():
                             text_parts.append(page_text)
-                    raw_content = "\n\n".join(text_parts)
+
+                raw_content = "\n\n".join(text_parts)
+
             except ImportError:
-                # Fallback to PyPDF2
+                # Fallback to PyPDF2 (no column support, but better than nothing)
                 try:
                     from PyPDF2 import PdfReader
                     reader = PdfReader(io.BytesIO(pdf_bytes))
@@ -494,23 +519,30 @@ class DiyanetScraper:
                 except ImportError:
                     logger.error("No PDF library available. Install pdfplumber or PyPDF2.")
                     return None
-            
+
             if not raw_content or len(raw_content) < 50:
                 logger.warning(f"PDF had no extractable text: {source_url}")
                 return None
-            
-            # Filter out Arabic text, keep only Turkish
+
+            # Remove footnote markers: patterns like "1 Müslim, 288." or "2 Tevbe, 9/18."
+            # These appear at the bottom of pages and get mixed into the text by some PDF extractors
+            raw_content = re.sub(
+                r'\b\d+\s+[A-ZÇĞİÖŞÜa-zçğışöüı][a-zçğışöüı]+,?\s*[\d/]+\.?',
+                '',
+                raw_content
+            )
+
+            # Filter out Arabic text, keep only Turkish, preserve paragraph breaks
             content = DiyanetScraper._filter_turkish_content(raw_content)
-            
+
             if not content or len(content) < 30:
                 logger.warning(f"PDF had no Turkish text after filtering: {source_url}")
                 return None
-            
-            # Do NOT extract title from PDF — title comes from JSON
+
             summary = content[:200] + "..." if len(content) > 200 else content
             category = DiyanetScraper._determine_category(content)
             reading_time = HutbeService.calculate_reading_time(content)
-            
+
             return {
                 'content': content,
                 'summary': summary,
@@ -521,6 +553,8 @@ class DiyanetScraper:
         except Exception as e:
             logger.error(f"Error extracting text from PDF: {e}")
             return None
+
+
     
     @staticmethod
     def _determine_category(text: str) -> str:
