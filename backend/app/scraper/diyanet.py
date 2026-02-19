@@ -46,6 +46,7 @@ class DiyanetScraper:
         """
         Scrape list of hutbeler from Diyanet website with full SharePoint pagination.
         Fetches ALL hutbeler from 2011-2026 using SharePoint API.
+        Uses both GET and POST methods with retry for robustness.
         """
         hutbeler = []
         
@@ -58,7 +59,7 @@ class DiyanetScraper:
             url = f"{DiyanetScraper.BASE_URL}/kategoriler/yayinlarimiz/hutbeler/türkçe"
             
             logger.info(f"Fetching hutbe list page 1 from: {url}")
-            response = requests.get(url, headers=DiyanetScraper.HEADERS, timeout=15)
+            response = requests.get(url, headers=DiyanetScraper.HEADERS, timeout=30)
             response.raise_for_status()
             
             # Step B: Parse JSON blocks from page 1
@@ -67,13 +68,13 @@ class DiyanetScraper:
             
             logger.info(f"Page 1: Found {len(page1_items)} hutbeler")
             
-            # Step C: Paginate using POST requests
+            # Step C: Paginate using both GET and POST with retry
             if hutbeler:
-                page_first_row = DiyanetScraper.ITEMS_PER_PAGE + 1  # Start from row 31 for page 2
-                max_pages = 30  # Safety limit (~900 hutbeler, 2011-2026)
+                page_first_row = DiyanetScraper.ITEMS_PER_PAGE + 1  # Row 31 for page 2
+                max_pages = 30  # Safety limit
+                consecutive_failures = 0
                 
                 while page_first_row < max_pages * DiyanetScraper.ITEMS_PER_PAGE + 1:
-                    # Get last hutbe's date and ID for pagination
                     if not hutbeler:
                         break
                     
@@ -81,8 +82,6 @@ class DiyanetScraper:
                     last_date = last_hutbe['date']
                     last_id = last_hutbe.get('sharepoint_id', '')
                     
-                    # Format date for SharePoint: yyyyMMdd HH:mm:ss (URL encoded)
-                    # SharePoint requires the time component for pagination cursor
                     sp_date = last_date.strftime('%Y%m%d') + DiyanetScraper.SHAREPOINT_TIME_SUFFIX
                     
                     pagination_url = (
@@ -97,39 +96,59 @@ class DiyanetScraper:
                         f"&PageFirstRow={page_first_row}"
                     )
                     
-                    try:
-                        page_response = requests.post(
-                            pagination_url,
-                            headers={
-                                **DiyanetScraper.HEADERS,
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                            },
-                            timeout=15,
-                        )
-                        
-                        if page_response.status_code != 200:
-                            logger.info(f"Pagination stopped at row {page_first_row}, status: {page_response.status_code}")
+                    page_items = None
+                    
+                    # Try GET first (more reliable on some servers)
+                    for method in ['GET', 'POST']:
+                        try:
+                            if method == 'GET':
+                                page_response = requests.get(
+                                    pagination_url,
+                                    headers=DiyanetScraper.HEADERS,
+                                    timeout=30,
+                                )
+                            else:
+                                page_response = requests.post(
+                                    pagination_url,
+                                    headers={
+                                        **DiyanetScraper.HEADERS,
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                        'Content-Type': 'application/x-www-form-urlencoded',
+                                    },
+                                    timeout=30,
+                                )
+                            
+                            if page_response.status_code == 200:
+                                page_items = DiyanetScraper._parse_sharepoint_json(page_response.text)
+                                if page_items:
+                                    logger.info(f"Row {page_first_row}: {method} returned {len(page_items)} items")
+                                    break
+                                else:
+                                    logger.debug(f"Row {page_first_row}: {method} returned 200 but 0 items parsed")
+                            else:
+                                logger.debug(f"Row {page_first_row}: {method} returned status {page_response.status_code}")
+                        except Exception as e:
+                            logger.debug(f"Row {page_first_row}: {method} failed: {e}")
+                            continue
+                    
+                    if not page_items:
+                        consecutive_failures += 1
+                        logger.warning(f"Row {page_first_row}: No items from GET or POST (failure #{consecutive_failures})")
+                        if consecutive_failures >= 3:
+                            logger.info(f"Stopping pagination after {consecutive_failures} consecutive failures")
                             break
-                        
-                        # Parse hutbeler from this page
-                        page_items = DiyanetScraper._parse_sharepoint_json(page_response.text)
-                        
-                        if not page_items:
-                            logger.info(f"No more hutbeler found at row {page_first_row}, stopping pagination")
-                            break
-                        
-                        hutbeler.extend(page_items)
-                        logger.info(f"Page {page_first_row // DiyanetScraper.ITEMS_PER_PAGE + 1}: Found {len(page_items)} hutbeler (total: {len(hutbeler)})")
-                        
+                        # Try skipping ahead
                         page_first_row += DiyanetScraper.ITEMS_PER_PAGE
-                        
-                        # Rate limiting
-                        time.sleep(1)
-                        
-                    except Exception as e:
-                        logger.error(f"Pagination error at row {page_first_row}: {e}")
-                        break
+                        time.sleep(2)
+                        continue
+                    
+                    consecutive_failures = 0
+                    hutbeler.extend(page_items)
+                    page_num = page_first_row // DiyanetScraper.ITEMS_PER_PAGE + 1
+                    logger.info(f"Page {page_num}: +{len(page_items)} hutbeler (total: {len(hutbeler)})")
+                    
+                    page_first_row += DiyanetScraper.ITEMS_PER_PAGE
+                    time.sleep(1)
             
             logger.info(f"Successfully scraped {len(hutbeler)} hutbeler total")
             
@@ -603,8 +622,9 @@ class DiyanetScraper:
             return 0, 0
         
         # Count remaining (for progress reporting)
+        from sqlalchemy import func as sa_func
         count_result = await db.execute(
-            select(func.count(Hutbe.id))
+            select(sa_func.count(Hutbe.id))
             .where(Hutbe.content.like('%Hutbe içeriği yükleniyor%'))
         )
         total_remaining = count_result.scalar()
