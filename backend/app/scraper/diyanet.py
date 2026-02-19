@@ -661,3 +661,76 @@ class DiyanetScraper:
         remaining = total_remaining - len(hutbes_to_enrich)
         logger.info(f"Enrichment batch done. Enriched: {enriched}, Remaining: {remaining}")
         return enriched, max(0, remaining)
+
+    @staticmethod
+    async def import_seed_data(db, items: list) -> dict:
+        """
+        Import hutbe metadata from browser-extracted JSON seed data.
+        Each item should have: {title, date (DD.MM.YYYY), pdf, id}
+        Uses upsert to prevent duplicates.
+        
+        This solves the Diyanet WAF blocking all automated pagination.
+        The user extracts data via F12 console JS script, then submits here.
+        """
+        from app.schemas.hutbe import HutbeCreate
+        
+        logger.info(f"Importing {len(items)} hutbe seed items...")
+        
+        new_count = 0
+        updated_count = 0
+        error_count = 0
+        
+        for item in items:
+            try:
+                title = item.get('title', '').strip()
+                date_str = item.get('date', '')
+                pdf_path = item.get('pdf', '')
+                
+                if not title or not date_str:
+                    error_count += 1
+                    continue
+                
+                # Parse date (DD.MM.YYYY format from Diyanet)
+                hutbe_date = DiyanetScraper._parse_date(date_str)
+                
+                # Build full PDF URL
+                pdf_url = f"{DiyanetScraper.BASE_URL}{pdf_path}" if pdf_path and not pdf_path.startswith('http') else pdf_path
+                
+                hutbe_data = {
+                    'title': title,
+                    'date': hutbe_date,
+                    'year': hutbe_date.year,
+                    'source_url': pdf_url or '',
+                    'content': f"{title}\n\nHutbe içeriği yükleniyor...",
+                    'summary': title,
+                    'category': DiyanetScraper._determine_category(title),
+                    'reading_time_minutes': 5,
+                }
+                
+                hutbe_create = HutbeCreate(**hutbe_data)
+                hutbe, is_new = await HutbeService.upsert_hutbe(db, hutbe_create)
+                
+                if is_new:
+                    new_count += 1
+                else:
+                    updated_count += 1
+                    
+            except Exception as e:
+                logger.error(f"Error importing '{item.get('title', '?')[:40]}': {e}")
+                error_count += 1
+                continue
+        
+        # Set the most recent hutbe as featured
+        await HutbeService.set_featured_hutbe(db)
+        await db.commit()
+        
+        total = new_count + updated_count
+        logger.info(f"Seed import done. New: {new_count}, Updated: {updated_count}, Errors: {error_count}")
+        
+        return {
+            "total_processed": total,
+            "new": new_count,
+            "updated": updated_count,
+            "errors": error_count,
+        }
+

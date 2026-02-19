@@ -194,6 +194,33 @@ async def enrich_hutbe_content(
         return {"status": "error", "error": str(e)}
 
 
+@app.post(f"{settings.API_V1_PREFIX}/scraper/import-seed")
+async def import_seed_data(
+    body: dict,
+    db = Depends(get_db),
+):
+    """
+    Import hutbe metadata from browser-extracted JSON.
+    Diyanet's WAF blocks automated pagination, so the user extracts
+    all hutbe data via F12 console and submits it here.
+    
+    Body format: {"items": [{"title": "...", "date": "DD.MM.YYYY", "pdf": "/Documents/...", "id": "123"}, ...]}
+    """
+    try:
+        items = body.get("items", [])
+        if not items:
+            return {"status": "error", "error": "No items in body. Expected {items: [...]}"}
+        
+        result = await DiyanetScraper.import_seed_data(db, items)
+        return {
+            "status": "completed",
+            **result,
+            "next_step": "Call /scraper/enrich to download PDF content for all hutbes"
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
