@@ -19,6 +19,10 @@ class DiyanetScraper:
     # PDF extraction constants
     MAX_TITLE_LENGTH = 100  # Maximum length for extracted title from PDF first line
     
+    # SharePoint pagination constants
+    ITEMS_PER_PAGE = 30  # SharePoint returns 30 items per page
+    SHAREPOINT_TIME_SUFFIX = '%2021%3a00%3a00'  # Time component for pagination (21:00:00 URL encoded)
+    
     # Required headers for requests
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -65,10 +69,10 @@ class DiyanetScraper:
             
             # Step C: Paginate using POST requests
             if hutbeler:
-                page_first_row = 31  # Start from row 31 for page 2
+                page_first_row = DiyanetScraper.ITEMS_PER_PAGE + 1  # Start from row 31 for page 2
                 max_pages = 30  # Safety limit (~900 hutbeler, 2011-2026)
                 
-                while page_first_row < max_pages * 30 + 1:
+                while page_first_row < max_pages * DiyanetScraper.ITEMS_PER_PAGE + 1:
                     # Get last hutbe's date and ID for pagination
                     if not hutbeler:
                         break
@@ -78,7 +82,8 @@ class DiyanetScraper:
                     last_id = last_hutbe.get('sharepoint_id', '')
                     
                     # Format date for SharePoint: yyyyMMdd HH:mm:ss (URL encoded)
-                    sp_date = last_date.strftime('%Y%m%d') + '%2021%3a00%3a00'
+                    # SharePoint requires the time component for pagination cursor
+                    sp_date = last_date.strftime('%Y%m%d') + DiyanetScraper.SHAREPOINT_TIME_SUFFIX
                     
                     pagination_url = (
                         f"{DiyanetScraper.BASE_URL}/_layouts/15/inplview.aspx"
@@ -115,9 +120,9 @@ class DiyanetScraper:
                             break
                         
                         hutbeler.extend(page_items)
-                        logger.info(f"Page {page_first_row // 30 + 1}: Found {len(page_items)} hutbeler (total: {len(hutbeler)})")
+                        logger.info(f"Page {page_first_row // DiyanetScraper.ITEMS_PER_PAGE + 1}: Found {len(page_items)} hutbeler (total: {len(hutbeler)})")
                         
-                        page_first_row += 30
+                        page_first_row += DiyanetScraper.ITEMS_PER_PAGE
                         
                         # Rate limiting
                         time.sleep(1)
@@ -175,7 +180,8 @@ class DiyanetScraper:
                     'audio_url': ses_url,
                     'sharepoint_id': item_data.get('ID', ''),
                 })
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Error parsing SharePoint JSON block: {e}")
                 continue
         
         return items
