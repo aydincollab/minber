@@ -168,10 +168,28 @@ async def test_scraper():
 async def manual_scraper_run(
     db = Depends(get_db),
 ):
-    """Manually trigger the scraper."""
+    """Phase 1: Save hutbe metadata (title, date, url) — fast, ~20 seconds for all 268 hutbes."""
     try:
         count = await DiyanetScraper.scrape_and_save_hutbeler(db, limit=500)
-        return {"status": "completed", "saved_count": count}
+        return {"status": "completed", "saved_count": count, "next_step": "Call /scraper/enrich to download PDF content"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@app.post(f"{settings.API_V1_PREFIX}/scraper/enrich")
+async def enrich_hutbe_content(
+    batch_size: int = 20,
+    db = Depends(get_db),
+):
+    """Phase 2: Download PDFs and enrich content. Call multiple times until remaining=0."""
+    try:
+        enriched, remaining = await DiyanetScraper.enrich_hutbe_content(db, batch_size=batch_size)
+        return {
+            "status": "completed",
+            "enriched_count": enriched,
+            "remaining": remaining,
+            "message": f"{enriched} enriched, {remaining} remaining" + (" — call again!" if remaining > 0 else " — all done!")
+        }
     except Exception as e:
         return {"status": "error", "error": str(e)}
 

@@ -507,7 +507,8 @@ class DiyanetScraper:
     @staticmethod
     async def scrape_and_save_hutbeler(db, year: Optional[int] = None, limit: int = 500):
         """
-        Scrape hutbeler and save to database using upsert (no duplicates).
+        Phase 1: Scrape hutbe METADATA and save to database (fast, no PDF downloads).
+        Uses upsert to prevent duplicates. Typically finishes in <30 seconds.
         
         Args:
             db: Database session
@@ -515,16 +516,17 @@ class DiyanetScraper:
             limit: Maximum number of hutbeler to scrape
         """
         from app.schemas.hutbe import HutbeCreate
-        from datetime import date as date_type
         
-        logger.info(f"Starting scraper for year {year or 'current'}...")
+        logger.info(f"Starting scraper (metadata only) for year {year or 'all'}...")
         
-        # Get list of hutbeler
+        # Get list of hutbeler (pagination takes ~20 seconds for all pages)
         hutbe_list = DiyanetScraper.scrape_hutbe_list(year)
         
         if not hutbe_list:
             logger.warning("No hutbeler found in scrape_hutbe_list")
             return 0
+        
+        logger.info(f"Found {len(hutbe_list)} hutbeler, saving metadata...")
         
         saved_count = 0
         new_count = 0
@@ -532,37 +534,18 @@ class DiyanetScraper:
         
         for i, hutbe_item in enumerate(hutbe_list[:limit]):
             try:
-                # Rate limiting - wait 1 second between requests
-                if i > 0:
-                    time.sleep(1)
-                
-                # Preserve the correct title from JSON before PDF extraction
                 json_title = hutbe_item.get('title', '')
                 
-                # Try to get full content if URL is available
-                if hutbe_item.get('pdf_url'):
-                    detail = DiyanetScraper.scrape_hutbe_detail(hutbe_item['pdf_url'])
-                elif hutbe_item.get('url'):
-                    detail = DiyanetScraper.scrape_hutbe_detail(hutbe_item['url'])
-                else:
-                    detail = None
-                
-                if detail:
-                    # Merge with list data — detail goes first, then hutbe_item overwrites
-                    hutbe_data = {
-                        **detail,
-                        **hutbe_item,
-                    }
-                else:
-                    # Use minimal data from list
-                    hutbe_data = hutbe_item.copy()
-                    if 'content' not in hutbe_data:
-                        hutbe_data['content'] = f"{json_title}\n\nHutbe içeriği yakında eklenecektir."
-                    if 'category' not in hutbe_data:
-                        hutbe_data['category'] = DiyanetScraper._determine_category(json_title)
-                
-                # ALWAYS use the JSON title, never the PDF-extracted one
-                hutbe_data['title'] = json_title
+                # Build hutbe data from JSON metadata ONLY (no PDF download)
+                hutbe_data = {
+                    'title': json_title,
+                    'date': hutbe_item['date'],
+                    'source_url': hutbe_item.get('pdf_url') or hutbe_item.get('url', ''),
+                    'content': f"{json_title}\n\nHutbe içeriği yükleniyor...",
+                    'summary': json_title,
+                    'category': DiyanetScraper._determine_category(json_title),
+                    'reading_time_minutes': 5,
+                }
                 
                 # Ensure date is date object
                 if isinstance(hutbe_data['date'], str):
@@ -570,17 +553,8 @@ class DiyanetScraper:
                 
                 hutbe_data['year'] = hutbe_data['date'].year
                 
-                # Set source_url for upsert key
-                if 'source_url' not in hutbe_data and hutbe_data.get('pdf_url'):
-                    hutbe_data['source_url'] = hutbe_data['pdf_url']
-                
-                # Remove extra keys not in schema
-                schema_keys = {'title', 'content', 'summary', 'date', 'year', 'category',
-                               'reading_time_minutes', 'source_url', 'is_featured'}
-                clean_data = {k: v for k, v in hutbe_data.items() if k in schema_keys}
-                
                 # Create hutbe schema
-                hutbe_create = HutbeCreate(**clean_data)
+                hutbe_create = HutbeCreate(**hutbe_data)
                 
                 # UPSERT — prevents duplicates
                 hutbe, is_new = await HutbeService.upsert_hutbe(db, hutbe_create)
@@ -600,5 +574,70 @@ class DiyanetScraper:
         # Commit the changes
         await db.commit()
         
-        logger.info(f"Scraping completed. Total: {saved_count}, New: {new_count}, Updated: {updated_count}")
+        logger.info(f"Metadata save completed. Total: {saved_count}, New: {new_count}, Updated: {updated_count}")
         return saved_count
+
+    @staticmethod
+    async def enrich_hutbe_content(db, batch_size: int = 20):
+        """
+        Phase 2: Download PDFs and enrich hutbe content for items that only have placeholder text.
+        Processes in batches to avoid Railway timeout (5 min).
+        Call multiple times until all hutbes are enriched.
+        
+        Returns: (enriched_count, remaining_count)
+        """
+        from sqlalchemy import select
+        from app.models.hutbe import Hutbe
+        
+        # Find hutbes with placeholder content (not yet enriched)
+        result = await db.execute(
+            select(Hutbe)
+            .where(Hutbe.content.like('%Hutbe içeriği yükleniyor%'))
+            .order_by(Hutbe.date.desc())
+            .limit(batch_size)
+        )
+        hutbes_to_enrich = list(result.scalars().all())
+        
+        if not hutbes_to_enrich:
+            logger.info("All hutbes already enriched with content")
+            return 0, 0
+        
+        # Count remaining (for progress reporting)
+        count_result = await db.execute(
+            select(func.count(Hutbe.id))
+            .where(Hutbe.content.like('%Hutbe içeriği yükleniyor%'))
+        )
+        total_remaining = count_result.scalar()
+        
+        enriched = 0
+        for hutbe in hutbes_to_enrich:
+            try:
+                if not hutbe.source_url:
+                    continue
+                
+                detail = DiyanetScraper.scrape_hutbe_detail(hutbe.source_url)
+                
+                if detail and detail.get('content'):
+                    hutbe.content = detail['content']
+                    hutbe.summary = detail.get('summary', hutbe.content[:200])
+                    hutbe.category = detail.get('category', hutbe.category)
+                    hutbe.reading_time_minutes = detail.get('reading_time_minutes', 5)
+                    enriched += 1
+                    logger.info(f"Enriched: {hutbe.title[:50]}")
+                else:
+                    # Mark as "no content available" so we don't retry forever
+                    hutbe.content = f"{hutbe.title}\n\nBu hutbenin içeriğine şu anda ulaşılamıyor."
+                    logger.warning(f"No content extractable for: {hutbe.title[:50]}")
+                
+                # Rate limiting between PDF downloads
+                time.sleep(1)
+                
+            except Exception as e:
+                logger.error(f"Error enriching hutbe '{hutbe.title[:40]}': {e}")
+                continue
+        
+        await db.commit()
+        
+        remaining = total_remaining - len(hutbes_to_enrich)
+        logger.info(f"Enrichment batch done. Enriched: {enriched}, Remaining: {remaining}")
+        return enriched, max(0, remaining)
