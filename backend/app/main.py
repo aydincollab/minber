@@ -194,6 +194,27 @@ async def enrich_hutbe_content(
         return {"status": "error", "error": str(e)}
 
 
+@app.post(f"{settings.API_V1_PREFIX}/scraper/reset-content")
+async def reset_hutbe_content(
+    db = Depends(get_db),
+):
+    """Reset all hutbe content to placeholder so /scraper/enrich re-downloads PDFs with the fixed paragraph filter."""
+    try:
+        from sqlalchemy import update
+        from app.models.hutbe import Hutbe
+        PLACEHOLDER = "Hutbe içeriği yükleniyor... / Sermon content loading..."
+        stmt = update(Hutbe).values(content=PLACEHOLDER, summary=None)
+        result = await db.execute(stmt)
+        await db.commit()
+        return {
+            "status": "completed",
+            "reset_count": result.rowcount,
+            "next_step": "Now call POST /scraper/enrich repeatedly until remaining=0"
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
 @app.post(f"{settings.API_V1_PREFIX}/scraper/import-seed")
 async def import_seed_data(
     body: dict,
