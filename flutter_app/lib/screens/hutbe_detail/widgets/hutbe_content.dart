@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:typed_data';
+import 'dart:io';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import '../../../theme/app_colors.dart';
 import '../../../models/hutbe.dart';
 import '../../../services/tts_service.dart';
 
-/// Tinder-style swipeable paragraph card reader for hutbe content.
 class HutbeContent extends StatefulWidget {
   final Hutbe hutbe;
   final int? currentReadingParagraph;
@@ -24,49 +23,64 @@ class HutbeContent extends StatefulWidget {
   State<HutbeContent> createState() => _HutbeContentState();
 }
 
-class _HutbeContentState extends State<HutbeContent> {
+class _HutbeContentState extends State<HutbeContent>
+    with TickerProviderStateMixin {
   late final PageController _pageController;
   late final List<String> _paragraphs;
   int _currentPage = 0;
   final TtsService _ttsService = TtsService();
   final ScreenshotController _screenshotController = ScreenshotController();
+  late AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
-    _paragraphs = widget.hutbe.content
-        .split(RegExp(r'\n+'))
-        .map((p) => p.trim())
-        .where((p) => p.isNotEmpty)
-        .toList();
+    _paragraphs = _parseParagraphs(widget.hutbe.content);
     _pageController = PageController();
     _ttsService.addListener(_onTtsUpdate);
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _ttsService.removeListener(_onTtsUpdate);
     _pageController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
+  /// Split content into clean paragraphs, filtering out date/metadata lines.
+  List<String> _parseParagraphs(String content) {
+    final dateRe = RegExp(r'^\d{2}[.\-/]\d{2}[.\-/]\d{4}$');
+    return content
+        .split(RegExp(r'\n+'))
+        .map((p) => p.trim())
+        .where((p) =>
+            p.isNotEmpty &&
+            !p.startsWith('Tarih:') &&
+            !p.startsWith('tarih:') &&
+            !dateRe.hasMatch(p))
+        .toList();
+  }
+
   void _onTtsUpdate() {
-    if (!_ttsService.isPlaying) return;
-    final idx = _ttsService.getCurrentParagraphIndex(_paragraphs);
-    if (idx >= 0 && idx != _currentPage && mounted) {
+    if (!mounted) return;
+    final idx = _ttsService.currentParagraphIndex;
+    if (idx >= 0 && idx < _paragraphs.length && idx != _currentPage) {
       _goToPage(idx, animate: true);
     }
+    setState(() {});
   }
 
   void _goToPage(int index, {bool animate = false}) {
     if (index < 0 || index >= _paragraphs.length) return;
     setState(() => _currentPage = index);
     if (animate) {
-      _pageController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeInOut,
-      );
+      _pageController.animateToPage(index,
+          duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
     } else {
       _pageController.jumpToPage(index);
     }
@@ -74,52 +88,70 @@ class _HutbeContentState extends State<HutbeContent> {
 
   void _onPageChanged(int index) {
     setState(() => _currentPage = index);
+    // If TTS is active, jump to the new paragraph
+    if (_ttsService.isPlaying || _ttsService.isPaused) {
+      _ttsService.jumpTo(index);
+    }
   }
 
-  void _showShareMenu(BuildContext context) {
+  /// Adaptive font size based on paragraph length.
+  double _fontSize(String text) {
+    final len = text.length;
+    if (len < 150) return 22;
+    if (len < 300) return 19;
+    if (len < 500) return 17;
+    return 15;
+  }
+
+  void _showShareMenu() {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.darkMid,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40,
+              width: 36,
               height: 4,
               decoration: BoxDecoration(
                 color: AppColors.textMuted.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
             ListTile(
-              leading: const Icon(Icons.image_outlined, color: AppColors.gold),
-              title: const Text(
-                'Bu paragrafı paylaş',
-                style: TextStyle(color: AppColors.textLight),
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.image_outlined, color: AppColors.gold),
               ),
-              subtitle: const Text(
-                'Görsel kart olarak paylaş (WhatsApp, Instagram...)',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-              ),
+              title: const Text('Görsel kart olarak paylaş',
+                  style: TextStyle(
+                      color: AppColors.textLight, fontWeight: FontWeight.w600)),
+              subtitle: const Text('WhatsApp, Instagram, Twitter...',
+                  style:
+                      TextStyle(color: AppColors.textMuted, fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);
                 _shareCurrentCard();
               },
             ),
-            const SizedBox(height: 12),
           ],
         ),
       ),
     );
   }
 
-  /// Capture current paragraph as styled image and share it.
   Future<void> _shareCurrentCard() async {
     if (_paragraphs.isEmpty) return;
     final paragraph = _paragraphs[_currentPage];
@@ -133,52 +165,50 @@ class _HutbeContentState extends State<HutbeContent> {
           width: 380,
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F291E),
+            color: const Color(0xFF0A1F14),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.gold,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+              Row(
+                children: [
+                  Container(
+                      width: 28, height: 3,
+                      decoration: BoxDecoration(
+                          color: AppColors.gold,
+                          borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(width: 8),
+                  const Text('❝',
+                      style:
+                          TextStyle(color: AppColors.gold, fontSize: 20)),
+                ],
               ),
-              const SizedBox(height: 18),
-              Text(
-                paragraph,
-                style: const TextStyle(
-                  fontFamily: 'Amiri',
-                  fontSize: 18,
-                  height: 1.9,
-                  color: Colors.white,
-                ),
-              ),
+              const SizedBox(height: 16),
+              Text(paragraph,
+                  style: TextStyle(
+                      fontFamily: 'Amiri',
+                      fontSize: _fontSize(paragraph),
+                      height: 1.85,
+                      color: Colors.white)),
               const SizedBox(height: 20),
-              const Divider(color: Color(0xFF2D5A3D), height: 1),
+              const Divider(color: Color(0xFF1D4A2A), height: 1),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Flexible(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        color: AppColors.gold,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                    child: Text(title,
                         overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                        style: const TextStyle(
+                            color: AppColors.gold,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
                   ),
-                  const Text(
-                    'Minber — Diyanet',
-                    style: TextStyle(color: Color(0xFF6B8F71), fontSize: 11),
-                  ),
+                  const Text('Minber — Diyanet',
+                      style:
+                          TextStyle(color: Color(0xFF5A8F6A), fontSize: 11)),
                 ],
               ),
             ],
@@ -189,11 +219,9 @@ class _HutbeContentState extends State<HutbeContent> {
     );
 
     if (imageBytes == null) return;
-
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/hutbe_paylasim.png');
     await file.writeAsBytes(imageBytes);
-
     await Share.shareXFiles(
       [XFile(file.path)],
       text: '"$paragraph"\n\n— $title\n#Minber #Hutbe #Diyanet',
@@ -202,51 +230,51 @@ class _HutbeContentState extends State<HutbeContent> {
 
   @override
   Widget build(BuildContext context) {
-    final screenH = MediaQuery.of(context).size.height;
+    final size = MediaQuery.of(context).size;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Meta header ──────────────────────────────────────────────
+        // ── Compact meta row ─────────────────────────────────────────
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
           child: Row(
             children: [
               const Icon(Icons.calendar_today_rounded,
-                  size: 13, color: AppColors.gold),
+                  size: 12, color: AppColors.gold),
               const SizedBox(width: 5),
               Text(
                 DateFormat('dd MMMM yyyy', 'tr_TR').format(widget.hutbe.date),
                 style: const TextStyle(
-                    color: AppColors.textMuted, fontSize: 13),
+                    color: AppColors.textMuted, fontSize: 12),
               ),
               if (widget.hutbe.readingTimeMinutes != null) ...[
                 const SizedBox(width: 10),
                 const Icon(Icons.menu_book_rounded,
-                    size: 13, color: AppColors.textMuted),
+                    size: 12, color: AppColors.textMuted),
                 const SizedBox(width: 4),
-                Text(
-                  '${widget.hutbe.readingTimeMinutes} dk',
-                  style: const TextStyle(
-                      color: AppColors.textMuted, fontSize: 13),
-                ),
+                Text('${widget.hutbe.readingTimeMinutes} dk',
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12)),
               ],
               const Spacer(),
               if (widget.hutbe.category != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                      horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.gold,
-                    borderRadius: BorderRadius.circular(20),
+                    color: AppColors.gold.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: AppColors.gold.withOpacity(0.4), width: 0.8),
                   ),
                   child: Text(
                     widget.hutbe.category!.toUpperCase(),
                     style: const TextStyle(
-                      color: AppColors.dark,
-                      fontSize: 10,
+                      color: AppColors.gold,
+                      fontSize: 9,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+                      letterSpacing: 0.8,
                     ),
                   ),
                 ),
@@ -254,169 +282,265 @@ class _HutbeContentState extends State<HutbeContent> {
           ),
         ),
 
-        const Divider(color: AppColors.textMuted, height: 1, thickness: 0.4),
+        const SizedBox(height: 10),
 
-        // ── Paragraph card area ──────────────────────────────────────
+        // ── Progress bar (thin golden line) ──────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: _paragraphs.isEmpty
+                  ? 0
+                  : (_currentPage + 1) / _paragraphs.length,
+              minHeight: 2,
+              backgroundColor: AppColors.textMuted.withOpacity(0.15),
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        // ── Card counter ─────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${_currentPage + 1} / ${_paragraphs.length}',
+                style: const TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5),
+              ),
+              if (_ttsService.isPlaying)
+                AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (_, __) => Row(
+                    children: [
+                      Icon(Icons.volume_up_rounded,
+                          size: 13,
+                          color: AppColors.gold.withOpacity(
+                              0.5 + 0.5 * _pulseController.value)),
+                      const SizedBox(width: 4),
+                      Text('Sesli okuma',
+                          style: TextStyle(
+                              color: AppColors.gold.withOpacity(
+                                  0.5 + 0.5 * _pulseController.value),
+                              fontSize: 11)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // ── Paragraph cards ──────────────────────────────────────────
         if (_paragraphs.isEmpty)
           const Padding(
             padding: EdgeInsets.all(40),
             child: Center(
-              child: Text(
-                'İçerik yükleniyor...',
-                style: TextStyle(color: AppColors.textMuted),
-              ),
+              child: Text('İçerik yükleniyor...',
+                  style: TextStyle(color: AppColors.textMuted)),
             ),
           )
         else
-          Column(
-            children: [
-              SizedBox(
-                height: screenH * 0.58,
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _paragraphs.length,
-                  onPageChanged: _onPageChanged,
-                  itemBuilder: (context, index) {
-                    final isActive = index == _currentPage;
-                    return GestureDetector(
-                      onLongPress: () => _showShareMenu(context),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        margin: EdgeInsets.fromLTRB(
-                            20, 16, 20, isActive ? 4 : 16),
-                        decoration: BoxDecoration(
-                          color: AppColors.darkMid,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isActive
-                                ? AppColors.gold.withOpacity(0.45)
-                                : AppColors.textMuted.withOpacity(0.12),
-                            width: isActive ? 1.5 : 0.8,
-                          ),
-                          boxShadow: isActive
-                              ? [
-                                  BoxShadow(
-                                    color: AppColors.gold.withOpacity(0.08),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ]
-                              : [],
+          SizedBox(
+            height: size.height * 0.60,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: _paragraphs.length,
+              onPageChanged: _onPageChanged,
+              itemBuilder: (context, index) {
+                final isActive = index == _currentPage;
+                final isTtsActive =
+                    _ttsService.isPlaying &&
+                    _ttsService.currentParagraphIndex == index;
+                final text = _paragraphs[index];
+                final fs = _fontSize(text);
+
+                return GestureDetector(
+                  onLongPress: _showShareMenu,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
+                    margin: EdgeInsets.fromLTRB(
+                        20, 0, 20, isActive ? 0 : 12),
+                    decoration: BoxDecoration(
+                      // Subtle radial gradient background
+                      gradient: RadialGradient(
+                        center: const Alignment(-0.6, -0.6),
+                        radius: 1.4,
+                        colors: [
+                          const Color(0xFF1A3A26),
+                          const Color(0xFF0D1F16),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isTtsActive
+                            ? AppColors.gold
+                            : isActive
+                                ? AppColors.gold.withOpacity(0.35)
+                                : AppColors.textMuted.withOpacity(0.08),
+                        width: isTtsActive ? 1.5 : isActive ? 1.0 : 0.6,
+                      ),
+                      boxShadow: isActive
+                          ? [
+                              BoxShadow(
+                                color: AppColors.gold.withOpacity(
+                                    isTtsActive ? 0.15 : 0.06),
+                                blurRadius: 24,
+                                offset: const Offset(0, 8),
+                              ),
+                            ]
+                          : [],
+                    ),
+                    child: Stack(
+                      children: [
+                        // Decorative quote mark top-left
+                        Positioned(
+                          top: 16,
+                          left: 20,
+                          child: Text('❝',
+                              style: TextStyle(
+                                  color: AppColors.gold.withOpacity(0.25),
+                                  fontSize: 48,
+                                  height: 1)),
                         ),
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _paragraphs[index],
-                                style: const TextStyle(
-                                  fontFamily: 'Amiri',
-                                  fontSize: 18,
-                                  height: 1.9,
-                                  color: AppColors.textLight,
-                                  letterSpacing: 0.1,
+
+                        // Decorative bottom-right flourish
+                        Positioned(
+                          bottom: 16,
+                          right: 20,
+                          child: Text('❞',
+                              style: TextStyle(
+                                  color: AppColors.gold.withOpacity(0.15),
+                                  fontSize: 36,
+                                  height: 1)),
+                        ),
+
+                        // Main text — fills card, no scrolling
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 52, 24, 52),
+                          child: Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.topLeft,
+                              child: SizedBox(
+                                width: size.width - 88,
+                                child: Text(
+                                  text,
+                                  style: TextStyle(
+                                    fontFamily: 'Amiri',
+                                    fontSize: fs,
+                                    height: 1.85,
+                                    color: Colors.white.withOpacity(0.93),
+                                    letterSpacing: 0.1,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(height: 12),
-                              // Long press hint on first card
-                              if (index == 0)
-                                const Text(
-                                  '• Uzun basarak paragrafı paylaş',
-                                  style: TextStyle(
-                                    color: AppColors.textMuted,
-                                    fontSize: 11,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ),
 
-              // ── Navigation controls ──────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // ← prev
-                    _NavButton(
-                      icon: Icons.arrow_back_ios_rounded,
-                      enabled: _currentPage > 0,
-                      onTap: () => _goToPage(_currentPage - 1),
-                    ),
-
-                    // progress counter
-                    Column(
-                      children: [
-                        Text(
-                          '${_currentPage + 1} / ${_paragraphs.length}',
-                          style: const TextStyle(
-                            color: AppColors.gold,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        // TTS active indicator strip at bottom
+                        if (isTtsActive)
+                          Positioned(
+                            bottom: 0,
+                            left: 24,
+                            right: 24,
+                            child: Container(
+                              height: 3,
+                              margin: const EdgeInsets.only(bottom: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(2),
+                                gradient: const LinearGradient(colors: [
+                                  Colors.transparent,
+                                  AppColors.gold,
+                                  Colors.transparent,
+                                ]),
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        SizedBox(
-                          width: 120,
-                          child: LinearProgressIndicator(
-                            value: _paragraphs.length > 1
-                                ? _currentPage /
-                                    (_paragraphs.length - 1)
-                                : 1.0,
-                            backgroundColor:
-                                AppColors.textMuted.withOpacity(0.2),
-                            valueColor:
-                                const AlwaysStoppedAnimation<Color>(
-                                    AppColors.gold),
-                            minHeight: 3,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
                       ],
                     ),
+                  ),
+                );
+              },
+            ),
+          ),
 
-                    // → next
-                    _NavButton(
-                      icon: Icons.arrow_forward_ios_rounded,
-                      enabled: _currentPage < _paragraphs.length - 1,
-                      onTap: () => _goToPage(_currentPage + 1),
-                    ),
-                  ],
-                ),
+        const SizedBox(height: 16),
+
+        // ── Navigation arrows ────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _NavButton(
+                icon: Icons.arrow_back_ios_rounded,
+                enabled: _currentPage > 0,
+                onTap: () => _goToPage(_currentPage - 1),
+              ),
+              // Dot indicators (max 7 visible)
+              _DotIndicator(
+                count: _paragraphs.length,
+                current: _currentPage,
+              ),
+              _NavButton(
+                icon: Icons.arrow_forward_ios_rounded,
+                enabled: _currentPage < _paragraphs.length - 1,
+                onTap: () => _goToPage(_currentPage + 1),
               ),
             ],
           ),
+        ),
 
-        // ── Source info ──────────────────────────────────────────────
+        // ── Share hint on first visit ─────────────────────────────────
+        // (only shown on last card as a subtle tip)
+        if (_currentPage == _paragraphs.length - 1 && _paragraphs.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: Center(
+              child: Text(
+                '✦  Herhangi bir kartı uzun basılı tutarak paylaşabilirsin  ✦',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textMuted.withOpacity(0.5),
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ),
+
         if (widget.hutbe.sourceUrl != null)
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             child: Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.textMuted.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.textMuted.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: AppColors.textMuted.withOpacity(0.1),
-                ),
+                    color: AppColors.textMuted.withOpacity(0.08)),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.link, color: AppColors.gold, size: 18),
-                  SizedBox(width: 10),
+                  Icon(Icons.link, color: AppColors.gold, size: 16),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Kaynak: Diyanet İşleri Başkanlığı',
                       style: TextStyle(
-                          color: AppColors.textMuted, fontSize: 12),
+                          color: AppColors.textMuted, fontSize: 11),
                     ),
                   ),
                 ],
@@ -424,22 +548,20 @@ class _HutbeContentState extends State<HutbeContent> {
             ),
           ),
 
-        const SizedBox(height: 100),
+        const SizedBox(height: 120),
       ],
     );
   }
 }
 
+// ── Nav button ────────────────────────────────────────────────────────
 class _NavButton extends StatelessWidget {
   final IconData icon;
   final bool enabled;
   final VoidCallback onTap;
 
-  const _NavButton({
-    required this.icon,
-    required this.enabled,
-    required this.onTap,
-  });
+  const _NavButton(
+      {required this.icon, required this.enabled, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -447,28 +569,67 @@ class _NavButton extends StatelessWidget {
       onTap: enabled ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 44,
-        height: 44,
+        width: 42,
+        height: 42,
         decoration: BoxDecoration(
           color: enabled
-              ? AppColors.gold.withOpacity(0.15)
-              : AppColors.textMuted.withOpacity(0.05),
+              ? AppColors.gold.withOpacity(0.12)
+              : Colors.transparent,
           shape: BoxShape.circle,
           border: Border.all(
             color: enabled
-                ? AppColors.gold.withOpacity(0.5)
+                ? AppColors.gold.withOpacity(0.45)
                 : AppColors.textMuted.withOpacity(0.1),
-            width: 1.2,
+            width: 1,
           ),
         ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: enabled
-              ? AppColors.gold
-              : AppColors.textMuted.withOpacity(0.3),
-        ),
+        child: Icon(icon,
+            size: 16,
+            color: enabled
+                ? AppColors.gold
+                : AppColors.textMuted.withOpacity(0.25)),
       ),
+    );
+  }
+}
+
+// ── Dot indicator (max 7) ─────────────────────────────────────────────
+class _DotIndicator extends StatelessWidget {
+  final int count;
+  final int current;
+
+  const _DotIndicator({required this.count, required this.current});
+
+  @override
+  Widget build(BuildContext context) {
+    const maxDots = 7;
+    if (count <= 0) return const SizedBox.shrink();
+
+    // Compute visible range centered around current
+    int start = 0;
+    if (count > maxDots) {
+      start = (current - maxDots ~/ 2).clamp(0, count - maxDots);
+    }
+    final end = (start + maxDots).clamp(0, count);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(end - start, (i) {
+        final idx = start + i;
+        final isActive = idx == current;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          width: isActive ? 18 : 5,
+          height: 5,
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppColors.gold
+                : AppColors.textMuted.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(3),
+          ),
+        );
+      }),
     );
   }
 }

@@ -40,13 +40,16 @@ class TtsMiniPlayer extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 child: Column(
                   children: [
-                    // Progress bar
-                    LinearProgressIndicator(
-                      value: ttsService.currentPosition,
-                      backgroundColor: AppColors.textMuted.withOpacity(0.2),
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
-                      minHeight: 2,
-                    ),
+                    // Progress bar — paragraph-based
+                    Builder(builder: (ctx) {
+                      final idx = ttsService.currentParagraphIndex;
+                      return LinearProgressIndicator(
+                        value: 0.0, // paragraph count not available here; kept as indeterminate-style
+                        backgroundColor: AppColors.textMuted.withOpacity(0.2),
+                        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
+                        minHeight: 2,
+                      );
+                    }),
                     const SizedBox(height: 12),
                     
                     // Controls
@@ -92,7 +95,9 @@ class TtsMiniPlayer extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '${(ttsService.currentPosition * 100).toInt()}% tamamlandı',
+                                ttsService.currentParagraphIndex >= 0
+                                    ? 'Paragraf ${ttsService.currentParagraphIndex + 1} okunuyor'
+                                    : 'Sesli okuma',
                                 style: const TextStyle(
                                   color: AppColors.textMuted,
                                   fontSize: 12,

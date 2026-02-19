@@ -13,20 +13,21 @@ class TtsService extends ChangeNotifier {
 
   final FlutterTts _flutterTts = FlutterTts();
   TtsState _ttsState = TtsState.stopped;
-  double _speed = 0.45; // Comfortable default for Turkish
-  double _currentPosition = 0.0;
-  int _currentWordStart = 0;
-  int _currentWordEnd = 0;
+  double _speed = 0.45;
   String _currentText = '';
+
+  // ── Paragraph-by-paragraph list playback ─────────────────────────
+  List<String> _playlist = [];
+  int _playlistIndex = -1;
 
   TtsState get ttsState => _ttsState;
   double get speed => _speed;
-  double get currentPosition => _currentPosition;
-  int get currentWordStart => _currentWordStart;
-  int get currentWordEnd => _currentWordEnd;
   bool get isPlaying => _ttsState == TtsState.playing;
   bool get isPaused => _ttsState == TtsState.paused;
   bool get isStopped => _ttsState == TtsState.stopped;
+
+  /// Index of the paragraph currently being read (-1 if not in list mode).
+  int get currentParagraphIndex => _playlistIndex;
 
   Future<void> _initTts() async {
     try {
@@ -41,12 +42,18 @@ class TtsService extends ChangeNotifier {
       });
 
       _flutterTts.setCompletionHandler(() {
-        _ttsState = TtsState.stopped;
-        _currentPosition = 1.0;
-        _currentWordStart = 0;
-        _currentWordEnd = 0;
-        _currentText = '';
-        notifyListeners();
+        // If we're in list mode and there's a next paragraph, auto-advance
+        if (_playlistIndex >= 0 &&
+            _playlistIndex + 1 < _playlist.length) {
+          _playlistIndex++;
+          _speakCurrent();
+        } else {
+          _ttsState = TtsState.stopped;
+          _currentText = '';
+          _playlist = [];
+          _playlistIndex = -1;
+          notifyListeners();
+        }
       });
 
       _flutterTts.setCancelHandler(() {
@@ -54,10 +61,10 @@ class TtsService extends ChangeNotifier {
         notifyListeners();
       });
 
-      _flutterTts.setErrorHandler((message) {
+      _flutterTts.setErrorHandler((msg) {
         _ttsState = TtsState.stopped;
         notifyListeners();
-        debugPrint('TTS Error: $message');
+        debugPrint('TTS Error: $msg');
       });
 
       _flutterTts.setPauseHandler(() {
@@ -70,35 +77,47 @@ class TtsService extends ChangeNotifier {
         notifyListeners();
       });
 
-      _flutterTts.setProgressHandler(
-        (String text, int start, int end, String word) {
-          _currentWordStart = start;
-          _currentWordEnd = end;
-          if (_currentText.isNotEmpty) {
-            _currentPosition = start / _currentText.length;
-          }
-          notifyListeners();
-        },
-      );
-
       debugPrint('TTS initialized — speed: $_speed');
     } catch (e) {
       debugPrint('Error initializing TTS: $e');
     }
   }
 
-  /// Speak the given text from the beginning.
+  // ── Internal helper ───────────────────────────────────────────────
+  Future<void> _speakCurrent() async {
+    if (_playlistIndex < 0 || _playlistIndex >= _playlist.length) return;
+    final text = _playlist[_playlistIndex];
+    _currentText = text;
+    try {
+      await _flutterTts.setSpeechRate(_speed);
+      await _flutterTts.setLanguage('tr-TR');
+      await _flutterTts.speak(text);
+    } catch (e) {
+      debugPrint('Error speaking paragraph: $e');
+    }
+    notifyListeners(); // notify index change immediately
+  }
+
+  // ── Public API ────────────────────────────────────────────────────
+
+  /// Speak a list of paragraphs one by one, auto-advancing on completion.
+  /// [startIndex] lets you resume from a specific paragraph.
+  Future<void> speakList(List<String> paragraphs, {int startIndex = 0}) async {
+    if (paragraphs.isEmpty) return;
+    await _flutterTts.stop();
+    _playlist = List.unmodifiable(paragraphs);
+    _playlistIndex = startIndex.clamp(0, paragraphs.length - 1);
+    await _speakCurrent();
+  }
+
+  /// Speak a single text (legacy / share preview etc.)
   Future<void> speak(String text) async {
     if (text.isEmpty) return;
-
-    // Stop any ongoing speech first
     await _flutterTts.stop();
-
+    _playlist = [];
+    _playlistIndex = -1;
     _currentText = text;
-    _currentPosition = 0.0;
-
     try {
-      // Always re-apply speed before speaking — Android TTS can reset it
       await _flutterTts.setSpeechRate(_speed);
       await _flutterTts.setLanguage('tr-TR');
       await _flutterTts.speak(text);
@@ -107,68 +126,75 @@ class TtsService extends ChangeNotifier {
     }
   }
 
-  /// Pause current speech.
+  /// Pause. On Android, flutter_tts pause may not work; fallback to stop
+  /// while keeping our list position so resume() works correctly.
   Future<void> pause() async {
     try {
-      await _flutterTts.pause();
+      final result = await _flutterTts.pause();
+      if (result != 1) {
+        // Pause not supported — stop but remember position
+        await _flutterTts.stop();
+        _ttsState = TtsState.paused;
+        notifyListeners();
+      }
     } catch (e) {
-      // Fallback: stop and remember position
       await _flutterTts.stop();
       _ttsState = TtsState.paused;
       notifyListeners();
-      debugPrint('TTS pause fallback (stop): $e');
     }
   }
 
-  /// Resume — flutter_tts doesn't truly support resume on Android,
-  /// so we restart from the beginning of the current text.
+  /// Resume from exactly where we paused.
+  /// In list mode: re-speaks the current paragraph index.
+  /// In single-text mode: re-speaks the text from the beginning.
   Future<void> resume() async {
-    if (_currentText.isEmpty) return;
-    // Re-speak the full text; this is the best we can do cross-platform
-    await speak(_currentText);
+    if (_playlist.isNotEmpty && _playlistIndex >= 0) {
+      // List mode — re-speak current paragraph
+      await _speakCurrent();
+    } else if (_currentText.isNotEmpty) {
+      await speak(_currentText);
+    }
   }
 
-  /// Stop and clear.
+  /// Jump to a specific paragraph (and start speaking from there).
+  Future<void> jumpTo(int index) async {
+    if (index < 0 || index >= _playlist.length) return;
+    await _flutterTts.stop();
+    _playlistIndex = index;
+    await _speakCurrent();
+  }
+
+  /// Stop and clear everything.
   Future<void> stop() async {
     try {
       await _flutterTts.stop();
-      _ttsState = TtsState.stopped;
-      _currentPosition = 0.0;
-      _currentWordStart = 0;
-      _currentWordEnd = 0;
-      _currentText = '';
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error stopping: $e');
-    }
+    } catch (_) {}
+    _ttsState = TtsState.stopped;
+    _currentText = '';
+    _playlist = [];
+    _playlistIndex = -1;
+    notifyListeners();
   }
 
-  /// Update speech rate. Re-applies immediately even if already speaking.
+  /// Update speech rate. If playing, restarts current paragraph with new speed.
   Future<void> setSpeed(double speed) async {
     if (speed < 0.25 || speed > 2.0) return;
     _speed = speed;
     try {
       await _flutterTts.setSpeechRate(speed);
       notifyListeners();
-
-      // If currently playing, restart with new speed
-      if (_ttsState == TtsState.playing && _currentText.isNotEmpty) {
-        await speak(_currentText);
+      if (_ttsState == TtsState.playing) {
+        // Restart current paragraph / text with new speed
+        if (_playlist.isNotEmpty && _playlistIndex >= 0) {
+          await _flutterTts.stop();
+          await _speakCurrent();
+        } else if (_currentText.isNotEmpty) {
+          await speak(_currentText);
+        }
       }
     } catch (e) {
       debugPrint('Error setting speed: $e');
     }
-  }
-
-  // Get which paragraph index is currently being spoken
-  int getCurrentParagraphIndex(List<String> paragraphs) {
-    if (_currentText.isEmpty || paragraphs.isEmpty) return -1;
-    int totalChars = 0;
-    for (int i = 0; i < paragraphs.length; i++) {
-      totalChars += paragraphs[i].length + 1; // +1 for separator
-      if (_currentWordStart < totalChars) return i;
-    }
-    return paragraphs.length - 1;
   }
 
   @override

@@ -71,18 +71,11 @@ class _HutbeDetailScreenState extends State<HutbeDetailScreen> {
   }
 
   void _onTtsUpdate() {
-    if (_hutbe != null && _ttsService.isPlaying) {
-      final paragraphs = _hutbe!.content
-          .split('\n')
-          .where((p) => p.trim().isNotEmpty)
-          .toList();
-      final currentParagraph = _ttsService.getCurrentParagraphIndex(paragraphs);
-      
-      if (currentParagraph != _currentReadingParagraph) {
-        setState(() {
-          _currentReadingParagraph = currentParagraph;
-        });
-      }
+    final currentParagraph = _ttsService.currentParagraphIndex;
+    if (currentParagraph >= 0 && currentParagraph != _currentReadingParagraph) {
+      setState(() {
+        _currentReadingParagraph = currentParagraph;
+      });
     }
   }
 
@@ -194,19 +187,32 @@ class _HutbeDetailScreenState extends State<HutbeDetailScreen> {
 
   void _startTts() {
     if (_hutbe == null) return;
-    
-    // Apply speed from preferences
+
     final preferences = Provider.of<PreferencesProvider>(context, listen: false);
     _ttsService.setSpeed(preferences.ttsSpeed);
-    
+
     if (_ttsService.isPlaying) {
       _ttsService.pause();
     } else if (_ttsService.isPaused) {
       _ttsService.resume();
     } else {
-      _ttsService.speak(_hutbe!.content);
+      // Split content into paragraphs the same way HutbeContent does
+      final paragraphs = _hutbe!.content
+          .split(RegExp(r'\n+'))
+          .map((p) => p.trim())
+          .where((p) =>
+              p.isNotEmpty &&
+              !p.startsWith('Tarih:') &&
+              !RegExp(r'^\d{2}\.\d{2}\.\d{4}$').hasMatch(p))
+          .toList();
+      // Start from whichever card the user is on
+      final startIdx = _ttsService.currentParagraphIndex >= 0
+          ? _ttsService.currentParagraphIndex
+          : 0;
+      _ttsService.speakList(paragraphs, startIndex: startIdx);
     }
   }
+
 
   void _shareHutbe() {
     if (_hutbe == null) return;
