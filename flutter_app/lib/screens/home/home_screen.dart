@@ -21,6 +21,8 @@ import '../prayer_times/prayer_times_screen.dart';
 import '../favorites/favorites_screen.dart';
 import '../profile/profile_screen.dart';
 import '../hutbe_detail/hutbe_detail_screen.dart';
+import '../../services/notification_service.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -102,8 +104,10 @@ class _HomeScreenState extends State<HomeScreen> {
             _prayerTimings = timings;
             _city = cityToUse;
           });
+          _scheduleEzanIfEnabled(timings);
         }
         return;
+
       }
 
       final position = await _locationService.getCurrentPosition();
@@ -124,11 +128,13 @@ class _HomeScreenState extends State<HomeScreen> {
             _prayerTimings = timings;
             _city = resolvedCity;
           });
+          _scheduleEzanIfEnabled(timings);
           
           if (preferences.city == 'Konum alınıyor...') {
             preferences.setCity(resolvedCity);
           }
         }
+
       } else {
         // Fallback if location not available
         final timings = await _apiService.getPrayerTimes(
@@ -139,21 +145,37 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           setState(() {
             _prayerTimings = timings;
-            _city = 'Ankara'; // User said not to default to Ankara, but we need *something* if GPS fails. Let's redirect to city picker maybe?
-            // Actually, best "safe default" is Istanbul or Ankara for data, but UI should show "Şehir Seçiniz" if possible.
-            // For now, let's stick to a safe default but maybe Ankara is fine as a fallback-fallback.
+            _city = 'Ankara';
           });
+          _scheduleEzanIfEnabled(timings);
           
           if (preferences.city == 'Konum alınıyor...') {
             preferences.setCity('Ankara');
           }
         }
+
       }
     } catch (e) {
       // Using debugPrint for better log management in production
-      debugPrint('Error loading prayer times: $e');
+        debugPrint('Error loading prayer times: $e');
     }
   }
+
+  /// Schedule ezan notifications if the user has enabled them.
+  Future<void> _scheduleEzanIfEnabled(PrayerTimings timings) async {
+    final notifService = NotificationService();
+    final enabled = await notifService.isEnabled();
+    if (!enabled) return;
+    await notifService.schedulePrayerNotifications({
+      'Fajr':    timings.imsak,
+      'Sunrise': timings.sunrise,
+      'Dhuhr':   timings.dhuhr,
+      'Asr':     timings.asr,
+      'Maghrib': timings.maghrib,
+      'Isha':    timings.isha,
+    });
+  }
+
 
   Future<void> _loadFeaturedHutbe() async {
     try {

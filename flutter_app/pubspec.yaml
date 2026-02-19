@@ -67,7 +67,8 @@ dependencies:
 
   
   # Screenshot / Quote card sharing
-  screenshot: ^2.3.0
+  screenshot: ^3.0.0
+
 
 
 dev_dependencies:
