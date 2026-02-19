@@ -99,50 +99,32 @@ async def health_check():
 
 @app.get(f"{settings.API_V1_PREFIX}/scraper/test")
 async def test_scraper():
-    """Test scraper — show what it finds from Diyanet site."""
+    """Test scraper with full pagination and PDF extraction."""
     import traceback
     
     try:
+        # Test page 1
         url = f"{DiyanetScraper.BASE_URL}/kategoriler/yayinlarimiz/hutbeler/türkçe"
         response = requests.get(url, headers=DiyanetScraper.HEADERS, timeout=15)
         
-        page_text = response.text
+        page1_items = DiyanetScraper._parse_sharepoint_json(response.text)
         
-        # Count JSON blocks with Tarih and Title
-        import re
-        import json as json_module
-        # Use the same pattern as the scraper to find JSON blocks
-        json_block_pattern = re.compile(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}')
-        json_blocks = json_block_pattern.findall(page_text)
-        hutbe_json_blocks = [b for b in json_blocks if '"Tarih"' in b and '"Title"' in b]
+        # Run full scraper (with pagination)
+        all_hutbeler = DiyanetScraper.scrape_hutbe_list()
         
-        # Parse first few for preview
-        previews = []
-        for block in hutbe_json_blocks[:5]:
-            try:
-                fixed = block.replace('\\u002f', '/')
-                data = json_module.loads(fixed)
-                previews.append({
-                    "title": data.get("Title"),
-                    "date": data.get("Tarih"),
-                    "pdf": data.get("PDF"),
-                    "word": data.get("Word"),
-                    "audio": data.get("Ses"),
-                    "id": data.get("ID"),
-                })
-            except (json_module.JSONDecodeError, Exception) as e:
-                previews.append({"error": str(e), "raw": block[:200]})
-        
-        # Run actual scraper
-        hutbe_list = DiyanetScraper.scrape_hutbe_list()
-        
-        # Try PDF extraction on first hutbe if available
+        # Test PDF extraction on first hutbe
         pdf_test = None
-        if hutbe_list and hutbe_list[0].get('pdf_url'):
+        if all_hutbeler and all_hutbeler[0].get('pdf_url'):
             try:
-                pdf_response = requests.get(hutbe_list[0]['pdf_url'], headers=DiyanetScraper.HEADERS, timeout=30)
+                pdf_response = requests.get(
+                    all_hutbeler[0]['pdf_url'], 
+                    headers=DiyanetScraper.HEADERS, 
+                    timeout=30
+                )
                 if pdf_response.status_code == 200:
-                    detail = DiyanetScraper._extract_text_from_pdf(pdf_response.content, hutbe_list[0]['pdf_url'])
+                    detail = DiyanetScraper._extract_text_from_pdf(
+                        pdf_response.content, all_hutbeler[0]['pdf_url']
+                    )
                     if detail:
                         pdf_test = {
                             "status": "success",
@@ -157,23 +139,29 @@ async def test_scraper():
             except Exception as e:
                 pdf_test = {"status": "error", "error": str(e)}
         
+        # Year distribution
+        year_counts = {}
+        for h in all_hutbeler:
+            year = h['date'].year if hasattr(h['date'], 'year') else 'unknown'
+            year_counts[year] = year_counts.get(year, 0) + 1
+        
         return {
-            "page_info": {
-                "status_code": response.status_code,
-                "content_length": len(response.content),
-            },
-            "sharepoint_json_blocks": {
-                "total_json_blocks": len(json_blocks),
-                "hutbe_json_blocks": len(hutbe_json_blocks),
-                "previews": previews,
-            },
-            "scraper_result": {
-                "hutbe_count": len(hutbe_list),
-                "hutbeler": hutbe_list[:5],
-            },
+            "page1_count": len(page1_items),
+            "total_hutbe_count": len(all_hutbeler),
+            "year_distribution": dict(sorted(year_counts.items())),
+            "first_5": [
+                {"title": h["title"], "date": str(h["date"]), "pdf_url": h.get("pdf_url")} 
+                for h in all_hutbeler[:5]
+            ],
+            "last_5": [
+                {"title": h["title"], "date": str(h["date"]), "pdf_url": h.get("pdf_url")} 
+                for h in all_hutbeler[-5:]
+            ],
             "pdf_extraction_test": pdf_test,
-            "scraper_status": "working" if len(hutbe_list) > 2 else "needs_fix",
+            "scraper_status": "fully_working" if len(all_hutbeler) > 100 else "partial",
         }
+    except Exception as e:
+        return {"error": str(e), "traceback": traceback.format_exc()}
     except Exception as e:
         return {
             "error": str(e),

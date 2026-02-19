@@ -40,140 +40,145 @@ class DiyanetScraper:
     @staticmethod
     def scrape_hutbe_list(year: Optional[int] = None) -> List[Dict]:
         """
-        Scrape list of hutbeler from Diyanet website.
-        Tries multiple selector patterns to handle varying site structure.
+        Scrape list of hutbeler from Diyanet website with full SharePoint pagination.
+        Fetches ALL hutbeler from 2011-2026 using SharePoint API.
         """
         hutbeler = []
         
         try:
-            # Primary URL for Turkish hutbeler
+            # SharePoint List & View IDs
+            LIST_ID = "24A21FB8-6393-49BA-80CB-8D5C8A61AF3A"
+            VIEW_ID = "3371EE93-ABFB-4357-8754-14A7F3175DA5"
+            
+            # Step A: Fetch page 1 with GET
             url = f"{DiyanetScraper.BASE_URL}/kategoriler/yayinlarimiz/hutbeler/türkçe"
             
-            logger.info(f"Fetching hutbe list from: {url}")
+            logger.info(f"Fetching hutbe list page 1 from: {url}")
             response = requests.get(url, headers=DiyanetScraper.HEADERS, timeout=15)
             response.raise_for_status()
             
-            soup = BeautifulSoup(response.content, 'html.parser')
+            # Step B: Parse JSON blocks from page 1
+            page1_items = DiyanetScraper._parse_sharepoint_json(response.text)
+            hutbeler.extend(page1_items)
             
-            # Pattern 0 (PRIMARY): SharePoint inline JSON data
-            # Diyanet uses SharePoint which embeds list data as JSON in the page source
-            page_text = response.text
+            logger.info(f"Page 1: Found {len(page1_items)} hutbeler")
             
-            # Find all JSON-like objects in page source that have Tarih and Title
-            # Allow nested braces (e.g., in UniqueId field values)
-            json_block_pattern = re.compile(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}')
-            for block_match in json_block_pattern.finditer(page_text):
-                block = block_match.group(0)
-                if '"Tarih"' in block and '"Title"' in block:
-                    try:
-                        # Fix SharePoint unicode escapes before parsing
-                        # Note: Only fixing \u002f as it's the most common escape in paths
-                        # json.loads() will handle most other unicode sequences automatically
-                        fixed = block.replace('\\u002f', '/')
-                        item_data = json.loads(fixed)
-                        
-                        tarih = item_data.get('Tarih', '')
-                        title = item_data.get('Title', '')
-                        
-                        # Skip if no title or date doesn't match expected format
-                        if not title or not re.match(r'\d{2}\.\d{2}\.\d{4}', tarih):
-                            continue
-                        
-                        pdf_path = item_data.get('PDF', '')
-                        word_path = item_data.get('Word', '')
-                        ses_path = item_data.get('Ses', '')
-                        
-                        hutbe_date = DiyanetScraper._parse_date(tarih)
-                        
-                        # Build full URLs
-                        pdf_url = f"{DiyanetScraper.BASE_URL}{pdf_path}" if pdf_path else None
-                        word_url = f"{DiyanetScraper.BASE_URL}{word_path}" if word_path else None
-                        ses_url = f"{DiyanetScraper.BASE_URL}{ses_path}" if ses_path else None
-                        
-                        hutbeler.append({
-                            'title': title,
-                            'date': hutbe_date,
-                            'url': pdf_url,  # Primary content URL is the PDF
-                            'pdf_url': pdf_url,
-                            'word_url': word_url,
-                            'audio_url': ses_url,
-                            'sharepoint_id': item_data.get('ID', ''),
-                        })
-                    except json.JSONDecodeError as e:
-                        logger.debug(f"Failed to parse JSON block: {e}")
-                        continue
-                    except Exception as e:
-                        logger.debug(f"Error processing JSON block: {e}")
-                        continue
-            
+            # Step C: Paginate using POST requests
             if hutbeler:
-                logger.info(f"Found {len(hutbeler)} items using Pattern 0 (SharePoint JSON)")
-            
-            # Try Pattern 1: Card-based layout
-            items = soup.find_all("div", class_="card")
-            if items:
-                logger.info(f"Found {len(items)} items using Pattern 1 (card layout)")
-                for item in items:
+                page_first_row = 31  # Start from row 31 for page 2
+                max_pages = 30  # Safety limit (~900 hutbeler, 2011-2026)
+                
+                while page_first_row < max_pages * 30 + 1:
+                    # Get last hutbe's date and ID for pagination
+                    if not hutbeler:
+                        break
+                    
+                    last_hutbe = hutbeler[-1]
+                    last_date = last_hutbe['date']
+                    last_id = last_hutbe.get('sharepoint_id', '')
+                    
+                    # Format date for SharePoint: yyyyMMdd HH:mm:ss (URL encoded)
+                    sp_date = last_date.strftime('%Y%m%d') + '%2021%3a00%3a00'
+                    
+                    pagination_url = (
+                        f"{DiyanetScraper.BASE_URL}/_layouts/15/inplview.aspx"
+                        f"?List=%7B{LIST_ID}%7D"
+                        f"&View=%7B{VIEW_ID}%7D"
+                        f"&ViewCount=1&IsXslView=TRUE&IsCSR=TRUE"
+                        f"&ListViewPageUrl=https%3A%2F%2Fdinhizmetleri.diyanet.gov.tr%2Fkategoriler%2Fyayinlarimiz%2Fhutbeler%2Ft%25C3%25BCrk%25C3%25A7e"
+                        f"&Paged=TRUE&p_SortBehavior=0"
+                        f"&p_Tarih={sp_date}"
+                        f"&p_ID={last_id}"
+                        f"&PageFirstRow={page_first_row}"
+                    )
+                    
                     try:
-                        hutbe_data = DiyanetScraper._parse_card_item(item)
-                        if hutbe_data:
-                            hutbeler.append(hutbe_data)
+                        page_response = requests.post(
+                            pagination_url,
+                            headers={
+                                **DiyanetScraper.HEADERS,
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            timeout=15,
+                        )
+                        
+                        if page_response.status_code != 200:
+                            logger.info(f"Pagination stopped at row {page_first_row}, status: {page_response.status_code}")
+                            break
+                        
+                        # Parse hutbeler from this page
+                        page_items = DiyanetScraper._parse_sharepoint_json(page_response.text)
+                        
+                        if not page_items:
+                            logger.info(f"No more hutbeler found at row {page_first_row}, stopping pagination")
+                            break
+                        
+                        hutbeler.extend(page_items)
+                        logger.info(f"Page {page_first_row // 30 + 1}: Found {len(page_items)} hutbeler (total: {len(hutbeler)})")
+                        
+                        page_first_row += 30
+                        
+                        # Rate limiting
+                        time.sleep(1)
+                        
                     except Exception as e:
-                        logger.warning(f"Error parsing card item: {e}")
-                        continue
+                        logger.error(f"Pagination error at row {page_first_row}: {e}")
+                        break
             
-            # Try Pattern 2: Table-based layout
-            if not hutbeler:
-                logger.info("Pattern 1 found no results, trying Pattern 2 (table layout)")
-                rows = soup.select("table tbody tr")
-                if rows:
-                    logger.info(f"Found {len(rows)} rows using Pattern 2")
-                    for row in rows:
-                        try:
-                            hutbe_data = DiyanetScraper._parse_table_row(row)
-                            if hutbe_data:
-                                hutbeler.append(hutbe_data)
-                        except Exception as e:
-                            logger.warning(f"Error parsing table row: {e}")
-                            continue
-            
-            # Try Pattern 3: Generic hutbe links
-            if not hutbeler:
-                logger.info("Pattern 2 found no results, trying Pattern 3 (generic links)")
-                links = soup.find_all("a", href=re.compile(r'(?i)hutbe'))
-                if links:
-                    logger.info(f"Found {len(links)} links using Pattern 3")
-                    for link in links:
-                        try:
-                            hutbe_data = DiyanetScraper._parse_link_item(link)
-                            if hutbe_data:
-                                hutbeler.append(hutbe_data)
-                        except Exception as e:
-                            logger.warning(f"Error parsing link: {e}")
-                            continue
-            
-            # Try Pattern 4: List-based layout
-            if not hutbeler:
-                logger.info("Pattern 3 found no results, trying Pattern 4 (list items)")
-                list_items = soup.find_all("li")
-                date_pattern = re.compile(r'\d{2}\.\d{2}\.\d{4}')
-                for li in list_items:
-                    text = li.get_text()
-                    if date_pattern.search(text):
-                        try:
-                            hutbe_data = DiyanetScraper._parse_list_item(li)
-                            if hutbe_data:
-                                hutbeler.append(hutbe_data)
-                        except Exception as e:
-                            logger.warning(f"Error parsing list item: {e}")
-                            continue
-            
-            logger.info(f"Successfully scraped {len(hutbeler)} hutbeler")
+            logger.info(f"Successfully scraped {len(hutbeler)} hutbeler total")
             
         except Exception as e:
             logger.error(f"Error scraping hutbe list: {e}")
         
         return hutbeler
+    
+    @staticmethod
+    def _parse_sharepoint_json(page_text: str) -> List[Dict]:
+        """Parse SharePoint embedded JSON data from page HTML/response."""
+        items = []
+        json_block_pattern = re.compile(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}')
+        
+        for block_match in json_block_pattern.finditer(page_text):
+            block = block_match.group(0)
+            if '"Tarih"' not in block or '"Title"' not in block:
+                continue
+            try:
+                # Fix SharePoint unicode escapes before parsing
+                fixed = block.replace('\\u002f', '/')
+                item_data = json.loads(fixed)
+                
+                tarih = item_data.get('Tarih', '')
+                title = item_data.get('Title', '')
+                
+                # Skip if no title or date doesn't match expected format
+                if not title or not re.match(r'\d{2}\.\d{2}\.\d{4}', tarih):
+                    continue
+                
+                pdf_path = item_data.get('PDF', '')
+                word_path = item_data.get('Word', '')
+                ses_path = item_data.get('Ses', '')
+                
+                hutbe_date = DiyanetScraper._parse_date(tarih)
+                
+                # Build full URLs
+                pdf_url = f"{DiyanetScraper.BASE_URL}{pdf_path}" if pdf_path else None
+                word_url = f"{DiyanetScraper.BASE_URL}{word_path}" if word_path else None
+                ses_url = f"{DiyanetScraper.BASE_URL}{ses_path}" if ses_path else None
+                
+                items.append({
+                    'title': title,
+                    'date': hutbe_date,
+                    'url': pdf_url,
+                    'pdf_url': pdf_url,
+                    'word_url': word_url,
+                    'audio_url': ses_url,
+                    'sharepoint_id': item_data.get('ID', ''),
+                })
+            except Exception:
+                continue
+        
+        return items
     
     @staticmethod
     def _parse_card_item(item) -> Optional[Dict]:
