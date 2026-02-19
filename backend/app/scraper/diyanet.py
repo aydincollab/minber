@@ -426,26 +426,42 @@ class DiyanetScraper:
 
     @staticmethod
     def _filter_turkish_content(raw_text: str) -> str:
-        """Filter out Arabic lines and clean up Turkish content."""
+        """Filter out Arabic lines and clean up Turkish content, preserving paragraph breaks."""
         lines = raw_text.split('\n')
-        turkish_lines = []
+        paragraphs = []
+        current_para = []
+
         for line in lines:
             stripped = line.strip()
+
             if not stripped:
-                turkish_lines.append('')
+                # Blank line = paragraph boundary
+                if current_para:
+                    paragraphs.append(' '.join(current_para))
+                    current_para = []
                 continue
+
             # Skip lines that are predominantly Arabic
             if DiyanetScraper._is_arabic_line(stripped):
+                # When we skip an Arabic line that was mid-paragraph,
+                # treat it as a paragraph break so text doesn't merge
+                if current_para:
+                    paragraphs.append(' '.join(current_para))
+                    current_para = []
                 continue
+
             # Remove any remaining inline Arabic characters
             cleaned = DiyanetScraper.ARABIC_PATTERN.sub('', stripped)
             cleaned = re.sub(r'\s{2,}', ' ', cleaned).strip()
             if cleaned and len(cleaned) > 2:
-                turkish_lines.append(cleaned)
-        
-        # Join and clean up excessive whitespace
-        content = '\n'.join(turkish_lines)
-        content = re.sub(r'\n{3,}', '\n\n', content)
+                current_para.append(cleaned)
+
+        # Flush remaining
+        if current_para:
+            paragraphs.append(' '.join(current_para))
+
+        # Join paragraphs with double newline (clear visual separation)
+        content = '\n\n'.join(p for p in paragraphs if p.strip())
         return content.strip()
 
     @staticmethod

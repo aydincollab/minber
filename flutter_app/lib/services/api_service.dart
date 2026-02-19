@@ -120,6 +120,8 @@ class ApiService {
           'latitude': lat.toString(),
           'longitude': lng.toString(),
           'method': '13', // Diyanet method
+          'school': '1',  // Hanafi Asr (matches Diyanet Turkey)
+          'timezonestring': 'Europe/Istanbul',
         },
       );
     } else if (city != null) {
@@ -129,6 +131,8 @@ class ApiService {
           'city': city,
           'country': country ?? 'Turkey',
           'method': '13', // Diyanet method
+          'school': '1',  // Hanafi Asr (matches Diyanet Turkey)
+          'timezonestring': 'Europe/Istanbul',
         },
       );
     } else {
