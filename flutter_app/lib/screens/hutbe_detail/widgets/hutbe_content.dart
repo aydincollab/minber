@@ -15,10 +15,11 @@ class HutbeContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Split content into paragraphs
+    // Split content into paragraphs — handles both \n and \n\n separators
     final paragraphs = hutbe.content
-        .split('\n')
-        .where((p) => p.trim().isNotEmpty)
+        .split(RegExp(r'\n+'))
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
         .toList();
 
     return Column(
@@ -26,13 +27,16 @@ class HutbeContent extends StatelessWidget {
       children: [
         // Meta information
         Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Date and reading time
               Row(
                 children: [
+                  const Icon(Icons.calendar_today_rounded,
+                      size: 14, color: AppColors.gold),
+                  const SizedBox(width: 6),
                   Text(
                     DateFormat('dd MMMM yyyy', 'tr_TR').format(hutbe.date),
                     style: const TextStyle(
@@ -42,8 +46,11 @@ class HutbeContent extends StatelessWidget {
                   ),
                   if (hutbe.readingTimeMinutes != null) ...[
                     const SizedBox(width: 12),
+                    const Icon(Icons.menu_book_rounded,
+                        size: 14, color: AppColors.textMuted),
+                    const SizedBox(width: 4),
                     Text(
-                      '• ${hutbe.readingTimeMinutes} dk okuma',
+                      '${hutbe.readingTimeMinutes} dk',
                       style: const TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 14,
@@ -53,7 +60,7 @@ class HutbeContent extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              
+
               // Category badge
               if (hutbe.category != null)
                 Container(
@@ -79,32 +86,36 @@ class HutbeContent extends StatelessWidget {
           ),
         ),
 
+        const SizedBox(height: 16),
         const Divider(
           color: AppColors.textMuted,
           height: 1,
           thickness: 0.5,
         ),
+        const SizedBox(height: 4),
 
-        // Content
+        // Content — all paragraphs use the same uniform style
         Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: paragraphs.asMap().entries.map((entry) {
               final index = entry.key;
               final paragraph = entry.value;
-              final isFirstParagraph = index == 0;
               final isHighlighted = currentReadingParagraph == index;
-              final isQuote = _isQuote(paragraph);
 
               return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildParagraph(
-                  paragraph,
-                  isFirstParagraph: isFirstParagraph,
-                  isHighlighted: isHighlighted,
-                  isQuote: isQuote,
-                ),
+                padding: const EdgeInsets.only(bottom: 18),
+                child: isHighlighted
+                    ? Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.gold.withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: _paragraph(paragraph),
+                      )
+                    : _paragraph(paragraph),
               );
             }).toList(),
           ),
@@ -113,7 +124,7 @@ class HutbeContent extends StatelessWidget {
         // Source info
         if (hutbe.sourceUrl != null)
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -123,15 +134,11 @@ class HutbeContent extends StatelessWidget {
                   color: AppColors.textMuted.withOpacity(0.1),
                 ),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  const Icon(
-                    Icons.link,
-                    color: AppColors.gold,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
+                  Icon(Icons.link, color: AppColors.gold, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
                     child: Text(
                       'Kaynak: Diyanet İşleri Başkanlığı',
                       style: TextStyle(
@@ -145,112 +152,21 @@ class HutbeContent extends StatelessWidget {
             ),
           ),
 
-        const SizedBox(height: 100), // Space for bottom actions bar
+        const SizedBox(height: 100),
       ],
     );
   }
 
-  Widget _buildParagraph(
-    String text, {
-    required bool isFirstParagraph,
-    required bool isHighlighted,
-    required bool isQuote,
-  }) {
-    if (isQuote) {
-      return Container(
-        padding: const EdgeInsets.only(left: 16, top: 12, bottom: 12, right: 12),
-        decoration: BoxDecoration(
-          color: AppColors.gold.withOpacity(0.08),
-          border: const Border(
-            left: BorderSide(
-              color: AppColors.gold,
-              width: 3,
-            ),
-          ),
-          borderRadius: const BorderRadius.only(
-            topRight: Radius.circular(8),
-            bottomRight: Radius.circular(8),
-          ),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontFamily: 'Amiri',
-            fontSize: 16,
-            height: 1.8,
-            color: AppColors.textLight,
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      );
-    }
-
-    if (isHighlighted) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.gold.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: _buildTextWithDropCap(text, isFirstParagraph),
-      );
-    }
-
-    return _buildTextWithDropCap(text, isFirstParagraph);
-  }
-
-  Widget _buildTextWithDropCap(String text, bool isFirstParagraph) {
-    if (!isFirstParagraph || text.isEmpty) {
-      return Text(
-        text,
-        style: const TextStyle(
-          fontFamily: 'Amiri',
-          fontSize: 16,
-          height: 1.8,
-          color: AppColors.textLight,
-        ),
-      );
-    }
-
-    // Drop cap effect for first paragraph
-    final firstChar = text[0];
-    final restOfText = text.substring(1);
-
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: firstChar,
-            style: const TextStyle(
-              fontFamily: 'Playfair Display',
-              fontSize: 48,
-              height: 1,
-              color: AppColors.gold,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          TextSpan(
-            text: restOfText,
-            style: const TextStyle(
-              fontFamily: 'Amiri',
-              fontSize: 16,
-              height: 1.8,
-              color: AppColors.textLight,
-            ),
-          ),
-        ],
+  Widget _paragraph(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontFamily: 'Amiri',
+        fontSize: 17,
+        height: 1.85,
+        color: AppColors.textLight,
+        letterSpacing: 0.1,
       ),
     );
-  }
-
-  bool _isQuote(String text) {
-    // Simple heuristic: check if text contains quotes or starts with certain indicators
-    return text.contains('"') ||
-        text.contains('"') ||
-        text.contains('"') ||
-        text.toLowerCase().startsWith('allah') ||
-        text.toLowerCase().startsWith('peygamber') ||
-        text.toLowerCase().contains('hadis') ||
-        text.toLowerCase().contains('ayet');
   }
 }
