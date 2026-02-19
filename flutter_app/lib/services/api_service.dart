@@ -114,25 +114,23 @@ class ApiService {
     final dateStr = '${now.day}-${now.month}-${now.year}';
     
     if (lat != null && lng != null) {
-      // Get by coordinates (Aladhan API)
+      // Get by coordinates (Aladhan API — method 13 = Diyanet Turkey)
       uri = Uri.parse('https://api.aladhan.com/v1/timings/$dateStr').replace(
         queryParameters: {
           'latitude': lat.toString(),
           'longitude': lng.toString(),
-          'method': '13', // Diyanet method
-          'school': '1',  // Hanafi Asr (matches Diyanet Turkey)
-          'timezonestring': 'Europe/Istanbul',
+          'method': '13', // Diyanet İşleri Başkanlığı
+          // school param intentionally omitted: method 13 defines its own Asr
         },
       );
     } else if (city != null) {
-      // Get by city
+      // Get by city (Aladhan API — method 13 = Diyanet Turkey)
       uri = Uri.parse('https://api.aladhan.com/v1/timingsByCity/$dateStr').replace(
         queryParameters: {
           'city': city,
           'country': country ?? 'Turkey',
-          'method': '13', // Diyanet method
-          'school': '1',  // Hanafi Asr (matches Diyanet Turkey)
-          'timezonestring': 'Europe/Istanbul',
+          'method': '13', // Diyanet İşleri Başkanlığı
+          // school param intentionally omitted: method 13 defines its own Asr
         },
       );
     } else {
@@ -152,9 +150,11 @@ class ApiService {
           return time.split(' ')[0].trim();
         }
         
-        // Aladhan API returns HH:mm format, but may include timezone
+        // Aladhan API returns HH:mm format, may include timezone suffix
+        // IMPORTANT: Diyanet's "İmsak" = Fajr in Aladhan.
+        // Aladhan's own "Imsak" field = Fajr - 10 min (ihtiyat vakti), NOT what Diyanet calls İmsak.
         return PrayerTimings(
-          imsak: cleanTime(timingsRaw['Imsak'] ?? timingsRaw['Fajr'] ?? '05:00'),
+          imsak: cleanTime(timingsRaw['Fajr'] ?? '05:30'),  // Diyanet İmsak = Aladhan Fajr
           fajr: cleanTime(timingsRaw['Fajr'] ?? '05:00'),
           sunrise: cleanTime(timingsRaw['Sunrise'] ?? '06:30'),
           dhuhr: cleanTime(timingsRaw['Dhuhr'] ?? '13:00'),
