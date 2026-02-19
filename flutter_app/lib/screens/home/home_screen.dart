@@ -158,9 +158,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadFeaturedHutbe() async {
     try {
       final hutbe = await _apiService.getFeaturedHutbe();
-      setState(() {
-        _featuredHutbe = hutbe;
-      });
+      if (mounted && hutbe != null) {
+        setState(() {
+          _featuredHutbe = hutbe;
+        });
+      }
     } catch (e) {
       debugPrint('Error loading featured hutbe: $e');
     }
@@ -169,27 +171,33 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadRecentHutbeler() async {
     try {
       final hutbeler = await _apiService.getLatestHutbeler(limit: 10);
+      if (!mounted) return;
+      
       setState(() {
         _recentHutbeler = hutbeler;
         _isLoading = false;
       });
       
-      // If no featured hutbe, use first recent hutbe as featured
+      // If no featured hutbe loaded yet, use the first recent hutbe as fallback
       if (_featuredHutbe == null && hutbeler.isNotEmpty) {
         try {
           final firstHutbe = await _apiService.getHutbeById(hutbeler.first.id);
-          setState(() {
-            _featuredHutbe = firstHutbe;
-          });
+          if (mounted && _featuredHutbe == null) {
+            setState(() {
+              _featuredHutbe = firstHutbe;
+            });
+          }
         } catch (e) {
           debugPrint('Error loading fallback featured hutbe: $e');
         }
       }
     } catch (e) {
       debugPrint('Error loading recent hutbeler: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

@@ -390,9 +390,48 @@ class DiyanetScraper:
         except:
             return datetime.now().date()
     
+    # Arabic Unicode ranges for filtering
+    ARABIC_PATTERN = re.compile(r'[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDCF\uFDF0-\uFDFF]')
+
+    @staticmethod
+    def _is_arabic_line(line: str) -> bool:
+        """Check if a line contains predominantly Arabic characters."""
+        if not line.strip():
+            return False
+        arabic_chars = len(DiyanetScraper.ARABIC_PATTERN.findall(line))
+        total_alpha = sum(1 for c in line if c.isalpha())
+        if total_alpha == 0:
+            return False
+        # If more than 30% of alphabetic characters are Arabic, skip the line
+        return (arabic_chars / total_alpha) > 0.3
+
+    @staticmethod
+    def _filter_turkish_content(raw_text: str) -> str:
+        """Filter out Arabic lines and clean up Turkish content."""
+        lines = raw_text.split('\n')
+        turkish_lines = []
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                turkish_lines.append('')
+                continue
+            # Skip lines that are predominantly Arabic
+            if DiyanetScraper._is_arabic_line(stripped):
+                continue
+            # Remove any remaining inline Arabic characters
+            cleaned = DiyanetScraper.ARABIC_PATTERN.sub('', stripped)
+            cleaned = re.sub(r'\s{2,}', ' ', cleaned).strip()
+            if cleaned and len(cleaned) > 2:
+                turkish_lines.append(cleaned)
+        
+        # Join and clean up excessive whitespace
+        content = '\n'.join(turkish_lines)
+        content = re.sub(r'\n{3,}', '\n\n', content)
+        return content.strip()
+
     @staticmethod
     def _extract_text_from_pdf(pdf_bytes: bytes, source_url: str) -> Optional[Dict]:
-        """Extract text content from a PDF file."""
+        """Extract text content from a PDF file, filtering out Arabic text."""
         try:
             import io
             
@@ -405,7 +444,7 @@ class DiyanetScraper:
                         page_text = page.extract_text()
                         if page_text:
                             text_parts.append(page_text)
-                    content = "\n\n".join(text_parts)
+                    raw_content = "\n\n".join(text_parts)
             except ImportError:
                 # Fallback to PyPDF2
                 try:
@@ -416,33 +455,28 @@ class DiyanetScraper:
                         page_text = page.extract_text()
                         if page_text:
                             text_parts.append(page_text)
-                    content = "\n\n".join(text_parts)
+                    raw_content = "\n\n".join(text_parts)
                 except ImportError:
                     logger.error("No PDF library available. Install pdfplumber or PyPDF2.")
                     return None
             
-            if not content or len(content) < 50:
+            if not raw_content or len(raw_content) < 50:
                 logger.warning(f"PDF had no extractable text: {source_url}")
                 return None
             
-            # Clean up the content
-            content = re.sub(r'\n{3,}', '\n\n', content)  # Remove excessive newlines
-            content = content.strip()
+            # Filter out Arabic text, keep only Turkish
+            content = DiyanetScraper._filter_turkish_content(raw_content)
             
-            # Try to extract title from first line
-            lines = content.split('\n')
-            title = lines[0].strip() if lines else None
+            if not content or len(content) < 30:
+                logger.warning(f"PDF had no Turkish text after filtering: {source_url}")
+                return None
             
-            # If first line is too long to be a title, skip it
-            if title and len(title) > DiyanetScraper.MAX_TITLE_LENGTH:
-                title = None  # Too long to be a title
-            
+            # Do NOT extract title from PDF — title comes from JSON
             summary = content[:200] + "..." if len(content) > 200 else content
             category = DiyanetScraper._determine_category(content)
             reading_time = HutbeService.calculate_reading_time(content)
             
             return {
-                'title': title,
                 'content': content,
                 'summary': summary,
                 'category': category,
@@ -471,9 +505,9 @@ class DiyanetScraper:
         return "Genel"
     
     @staticmethod
-    async def scrape_and_save_hutbeler(db, year: Optional[int] = None, limit: int = 10):
+    async def scrape_and_save_hutbeler(db, year: Optional[int] = None, limit: int = 500):
         """
-        Scrape hutbeler and save to database.
+        Scrape hutbeler and save to database using upsert (no duplicates).
         
         Args:
             db: Database session
@@ -493,11 +527,17 @@ class DiyanetScraper:
             return 0
         
         saved_count = 0
+        new_count = 0
+        updated_count = 0
+        
         for i, hutbe_item in enumerate(hutbe_list[:limit]):
             try:
                 # Rate limiting - wait 1 second between requests
                 if i > 0:
                     time.sleep(1)
+                
+                # Preserve the correct title from JSON before PDF extraction
+                json_title = hutbe_item.get('title', '')
                 
                 # Try to get full content if URL is available
                 if hutbe_item.get('pdf_url'):
@@ -508,18 +548,21 @@ class DiyanetScraper:
                     detail = None
                 
                 if detail:
-                    # Merge with list data
+                    # Merge with list data — detail goes first, then hutbe_item overwrites
                     hutbe_data = {
-                        **hutbe_item,
                         **detail,
+                        **hutbe_item,
                     }
                 else:
                     # Use minimal data from list
                     hutbe_data = hutbe_item.copy()
                     if 'content' not in hutbe_data:
-                        hutbe_data['content'] = f"{hutbe_data['title']}\n\nHutbe içeriği yakında eklenecektir."
+                        hutbe_data['content'] = f"{json_title}\n\nHutbe içeriği yakında eklenecektir."
                     if 'category' not in hutbe_data:
-                        hutbe_data['category'] = DiyanetScraper._determine_category(hutbe_data['title'])
+                        hutbe_data['category'] = DiyanetScraper._determine_category(json_title)
+                
+                # ALWAYS use the JSON title, never the PDF-extracted one
+                hutbe_data['title'] = json_title
                 
                 # Ensure date is date object
                 if isinstance(hutbe_data['date'], str):
@@ -527,21 +570,35 @@ class DiyanetScraper:
                 
                 hutbe_data['year'] = hutbe_data['date'].year
                 
+                # Set source_url for upsert key
+                if 'source_url' not in hutbe_data and hutbe_data.get('pdf_url'):
+                    hutbe_data['source_url'] = hutbe_data['pdf_url']
+                
+                # Remove extra keys not in schema
+                schema_keys = {'title', 'content', 'summary', 'date', 'year', 'category',
+                               'reading_time_minutes', 'source_url', 'is_featured'}
+                clean_data = {k: v for k, v in hutbe_data.items() if k in schema_keys}
+                
                 # Create hutbe schema
-                hutbe_create = HutbeCreate(**hutbe_data)
+                hutbe_create = HutbeCreate(**clean_data)
                 
-                # Save to database
-                await HutbeService.create_hutbe(db, hutbe_create)
+                # UPSERT — prevents duplicates
+                hutbe, is_new = await HutbeService.upsert_hutbe(db, hutbe_create)
                 saved_count += 1
-                
-                logger.info(f"Saved hutbe: {hutbe_data['title'][:50]}...")
+                if is_new:
+                    new_count += 1
+                else:
+                    updated_count += 1
                 
             except Exception as e:
-                logger.error(f"Error saving hutbe: {e}")
+                logger.error(f"Error saving hutbe '{hutbe_item.get('title', '?')[:40]}': {e}")
                 continue
+        
+        # Set the most recent hutbe as featured
+        await HutbeService.set_featured_hutbe(db)
         
         # Commit the changes
         await db.commit()
         
-        logger.info(f"Scraping completed. Saved {saved_count} hutbeler.")
+        logger.info(f"Scraping completed. Total: {saved_count}, New: {new_count}, Updated: {updated_count}")
         return saved_count

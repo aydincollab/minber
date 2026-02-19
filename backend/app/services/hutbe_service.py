@@ -1,10 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_, desc
+from sqlalchemy import select, func, or_, desc, update
 from app.models.hutbe import Hutbe
 from app.schemas.hutbe import HutbeCreate, HutbeUpdate
 from typing import Optional, List
 from uuid import UUID
 from datetime import date
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class HutbeService:
@@ -149,3 +152,56 @@ class HutbeService:
         """Get total count of hutbeler in database."""
         result = await db.execute(select(func.count(Hutbe.id)))
         return result.scalar()
+
+    @staticmethod
+    async def upsert_hutbe(db: AsyncSession, hutbe_data: HutbeCreate) -> tuple[Hutbe, bool]:
+        """
+        Insert or update a hutbe based on source_url.
+        Returns (hutbe, is_new) — is_new=True if newly created, False if updated.
+        """
+        existing = None
+        if hutbe_data.source_url:
+            result = await db.execute(
+                select(Hutbe).where(Hutbe.source_url == hutbe_data.source_url)
+            )
+            existing = result.scalar_one_or_none()
+
+        if existing:
+            # Update existing record
+            update_dict = hutbe_data.model_dump(exclude={'is_featured'})
+            for field, value in update_dict.items():
+                setattr(existing, field, value)
+            await db.flush()
+            await db.refresh(existing)
+            logger.info(f"Updated existing hutbe: {existing.title[:50]}")
+            return existing, False
+        else:
+            # Create new record
+            hutbe = Hutbe(**hutbe_data.model_dump())
+            db.add(hutbe)
+            await db.flush()
+            await db.refresh(hutbe)
+            logger.info(f"Created new hutbe: {hutbe.title[:50]}")
+            return hutbe, True
+
+    @staticmethod
+    async def set_featured_hutbe(db: AsyncSession):
+        """
+        Set the most recent hutbe as featured, clear all others.
+        """
+        # Clear all featured flags
+        await db.execute(
+            update(Hutbe).where(Hutbe.is_featured == True).values(is_featured=False)
+        )
+
+        # Find the most recent hutbe by date
+        result = await db.execute(
+            select(Hutbe).order_by(desc(Hutbe.date)).limit(1)
+        )
+        latest = result.scalar_one_or_none()
+
+        if latest:
+            latest.is_featured = True
+            await db.flush()
+            logger.info(f"Featured hutbe set to: {latest.title[:50]} ({latest.date})")
+

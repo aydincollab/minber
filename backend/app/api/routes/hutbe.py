@@ -53,11 +53,16 @@ async def list_hutbeler(
 async def get_featured_hutbe(
     db: AsyncSession = Depends(get_database),
 ):
-    """Get the featured hutbe."""
+    """Get the featured hutbe. Falls back to the latest hutbe if none is featured."""
     hutbe = await HutbeService.get_featured_hutbe(db)
     
+    # Fallback: if no featured hutbe, return the most recent one
     if not hutbe:
-        raise HTTPException(status_code=404, detail="Featured hutbe not found")
+        latest_list = await HutbeService.get_latest_hutbeler(db, limit=1)
+        hutbe = latest_list[0] if latest_list else None
+    
+    if not hutbe:
+        raise HTTPException(status_code=404, detail="No hutbeler found")
     
     return HutbeResponse.model_validate(hutbe)
 

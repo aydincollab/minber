@@ -170,7 +170,7 @@ async def manual_scraper_run(
 ):
     """Manually trigger the scraper."""
     try:
-        count = await DiyanetScraper.scrape_and_save_hutbeler(db, limit=50)
+        count = await DiyanetScraper.scrape_and_save_hutbeler(db, limit=500)
         return {"status": "completed", "saved_count": count}
     except Exception as e:
         return {"status": "error", "error": str(e)}
