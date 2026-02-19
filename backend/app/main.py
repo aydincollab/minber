@@ -162,11 +162,6 @@ async def test_scraper():
         }
     except Exception as e:
         return {"error": str(e), "traceback": traceback.format_exc()}
-    except Exception as e:
-        return {
-            "error": str(e),
-            "traceback": traceback.format_exc(),
-        }
 
 
 @app.post(f"{settings.API_V1_PREFIX}/scraper/run")
