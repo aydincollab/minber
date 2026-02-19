@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../../../theme/app_colors.dart';
 import '../../../widgets/animated_orb.dart';
+import '../../../services/notification_service.dart';
 
 class HeroSection extends StatelessWidget {
   final VoidCallback? onNotificationsTap;
@@ -38,6 +39,7 @@ class HeroSection extends StatelessWidget {
           Positioned.fill(
             child: CustomPaint(
               painter: DiagonalPatternPainter(),
+
             ),
           ),
           
@@ -95,9 +97,8 @@ class HeroSection extends StatelessWidget {
                     ),
                   ],
                 ),
-                
-                // Icon button
-                _buildIconButton(Icons.notifications_outlined, onNotificationsTap),
+                // Ezan notification bell
+                const EzanBellButton(),
               ],
             ),
           ),
@@ -106,27 +107,90 @@ class HeroSection extends StatelessWidget {
     );
   }
 
-  Widget _buildIconButton(IconData icon, VoidCallback? onTap) {
+}
+
+/// A bell button that toggles ezan push notifications on/off.
+class EzanBellButton extends StatefulWidget {
+  const EzanBellButton({super.key});
+
+  @override
+  State<EzanBellButton> createState() => _EzanBellButtonState();
+}
+
+class _EzanBellButtonState extends State<EzanBellButton> {
+  final _notificationService = NotificationService();
+  bool _enabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadState();
+  }
+
+  Future<void> _loadState() async {
+    final enabled = await _notificationService.isEnabled();
+    if (mounted) setState(() => _enabled = enabled);
+  }
+
+  Future<void> _toggle() async {
+    if (!_enabled) {
+      // Request permission first
+      await _notificationService.initialize();
+      await _notificationService.requestPermission();
+    }
+    await _notificationService.setEnabled(!_enabled);
+    setState(() => _enabled = !_enabled);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _enabled
+              ? '🔔 Ezan bildirimleri açıldı'
+              : '🔕 Ezan bildirimleri kapatıldı',
+        ),
+        backgroundColor: AppColors.emerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
+      onTap: _toggle,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: AppColors.textLight.withOpacity(0.1),
+          color: _enabled
+              ? AppColors.gold.withOpacity(0.25)
+              : AppColors.textLight.withOpacity(0.1),
           shape: BoxShape.circle,
           border: Border.all(
-            color: AppColors.textMuted.withOpacity(0.2),
-            width: 1,
+            color: _enabled
+                ? AppColors.gold.withOpacity(0.7)
+                : AppColors.textMuted.withOpacity(0.2),
+            width: 1.2,
           ),
+          boxShadow: _enabled
+              ? [
+                  BoxShadow(
+                    color: AppColors.gold.withOpacity(0.3),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  )
+                ]
+              : [],
         ),
         child: ClipOval(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Icon(
-              icon,
+              _enabled ? Icons.notifications_active : Icons.notifications_outlined,
               size: 20,
-              color: AppColors.textLight,
+              color: _enabled ? AppColors.gold : AppColors.textLight,
             ),
           ),
         ),

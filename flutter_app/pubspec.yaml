@@ -60,6 +60,15 @@ dependencies:
   
   # Package info
   package_info_plus: ^9.0.0
+  
+  # Notifications (Ezan vakti bildirimleri)
+  flutter_local_notifications: ^18.0.0
+  timezone: ^0.9.4
+
+  
+  # Screenshot / Quote card sharing
+  screenshot: ^2.3.0
+
 
 dev_dependencies:
   flutter_test:

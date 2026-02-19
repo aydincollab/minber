@@ -13,7 +13,7 @@ class TtsService extends ChangeNotifier {
 
   final FlutterTts _flutterTts = FlutterTts();
   TtsState _ttsState = TtsState.stopped;
-  double _speed = 1.0;
+  double _speed = 0.45; // Comfortable default for Turkish
   double _currentPosition = 0.0;
   int _currentWordStart = 0;
   int _currentWordEnd = 0;
@@ -35,27 +35,23 @@ class TtsService extends ChangeNotifier {
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(1.0);
 
-      // Set up callbacks
       _flutterTts.setStartHandler(() {
         _ttsState = TtsState.playing;
         notifyListeners();
-        debugPrint('TTS Started');
       });
 
       _flutterTts.setCompletionHandler(() {
         _ttsState = TtsState.stopped;
-        _currentPosition = 0.0;
+        _currentPosition = 1.0;
         _currentWordStart = 0;
         _currentWordEnd = 0;
+        _currentText = '';
         notifyListeners();
-        debugPrint('TTS Completed');
       });
 
       _flutterTts.setCancelHandler(() {
         _ttsState = TtsState.stopped;
-        _currentPosition = 0.0;
         notifyListeners();
-        debugPrint('TTS Cancelled');
       });
 
       _flutterTts.setErrorHandler((message) {
@@ -67,16 +63,13 @@ class TtsService extends ChangeNotifier {
       _flutterTts.setPauseHandler(() {
         _ttsState = TtsState.paused;
         notifyListeners();
-        debugPrint('TTS Paused');
       });
 
       _flutterTts.setContinueHandler(() {
         _ttsState = TtsState.playing;
         notifyListeners();
-        debugPrint('TTS Continued');
       });
 
-      // Progress handler for word tracking
       _flutterTts.setProgressHandler(
         (String text, int start, int end, String word) {
           _currentWordStart = start;
@@ -88,47 +81,54 @@ class TtsService extends ChangeNotifier {
         },
       );
 
-      debugPrint('TTS initialized successfully');
+      debugPrint('TTS initialized — speed: $_speed');
     } catch (e) {
       debugPrint('Error initializing TTS: $e');
     }
   }
 
+  /// Speak the given text from the beginning.
   Future<void> speak(String text) async {
     if (text.isEmpty) return;
+
+    // Stop any ongoing speech first
+    await _flutterTts.stop();
 
     _currentText = text;
     _currentPosition = 0.0;
 
     try {
+      // Always re-apply speed before speaking — Android TTS can reset it
+      await _flutterTts.setSpeechRate(_speed);
+      await _flutterTts.setLanguage('tr-TR');
       await _flutterTts.speak(text);
     } catch (e) {
       debugPrint('Error speaking: $e');
     }
   }
 
+  /// Pause current speech.
   Future<void> pause() async {
     try {
       await _flutterTts.pause();
+    } catch (e) {
+      // Fallback: stop and remember position
+      await _flutterTts.stop();
       _ttsState = TtsState.paused;
       notifyListeners();
-    } catch (e) {
-      debugPrint('Error pausing: $e');
+      debugPrint('TTS pause fallback (stop): $e');
     }
   }
 
+  /// Resume — flutter_tts doesn't truly support resume on Android,
+  /// so we restart from the beginning of the current text.
   Future<void> resume() async {
-    try {
-      // Flutter TTS doesn't have a direct resume, so we continue
-      if (_ttsState == TtsState.paused) {
-        _ttsState = TtsState.playing;
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Error resuming: $e');
-    }
+    if (_currentText.isEmpty) return;
+    // Re-speak the full text; this is the best we can do cross-platform
+    await speak(_currentText);
   }
 
+  /// Stop and clear.
   Future<void> stop() async {
     try {
       await _flutterTts.stop();
@@ -143,48 +143,30 @@ class TtsService extends ChangeNotifier {
     }
   }
 
+  /// Update speech rate. Re-applies immediately even if already speaking.
   Future<void> setSpeed(double speed) async {
-    if (speed < 0.5 || speed > 2.0) return;
-    
+    if (speed < 0.25 || speed > 2.0) return;
     _speed = speed;
     try {
       await _flutterTts.setSpeechRate(speed);
       notifyListeners();
-      debugPrint('TTS speed set to: $speed');
+
+      // If currently playing, restart with new speed
+      if (_ttsState == TtsState.playing && _currentText.isNotEmpty) {
+        await speak(_currentText);
+      }
     } catch (e) {
       debugPrint('Error setting speed: $e');
     }
   }
 
-  Future<void> setLanguage(String language) async {
-    try {
-      await _flutterTts.setLanguage(language);
-      debugPrint('TTS language set to: $language');
-    } catch (e) {
-      debugPrint('Error setting language: $e');
-    }
-  }
-
-  Future<List<String>> getAvailableLanguages() async {
-    try {
-      final languages = await _flutterTts.getLanguages;
-      return List<String>.from(languages);
-    } catch (e) {
-      debugPrint('Error getting languages: $e');
-      return [];
-    }
-  }
-
-  // Get current paragraph being read
+  // Get which paragraph index is currently being spoken
   int getCurrentParagraphIndex(List<String> paragraphs) {
     if (_currentText.isEmpty || paragraphs.isEmpty) return -1;
-
     int totalChars = 0;
     for (int i = 0; i < paragraphs.length; i++) {
-      totalChars += paragraphs[i].length;
-      if (_currentWordStart < totalChars) {
-        return i;
-      }
+      totalChars += paragraphs[i].length + 1; // +1 for separator
+      if (_currentWordStart < totalChars) return i;
     }
     return paragraphs.length - 1;
   }

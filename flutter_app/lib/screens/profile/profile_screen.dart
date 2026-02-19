@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/preferences_provider.dart';
-import '../../services/tts_service.dart';
 import '../../services/local_database.dart';
 import '../../services/share_service.dart';
 import '../../services/location_service.dart';
@@ -18,7 +17,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final TtsService _ttsService = TtsService();
+
   final ShareService _shareService = ShareService();
   final LocationService _locationService = LocationService();
 
@@ -153,61 +152,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _showTtsSpeedSlider() async {
-    final preferences = Provider.of<PreferencesProvider>(context, listen: false);
-    double tempSpeed = preferences.ttsSpeed;
-    
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Okuma Hızı',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  '${tempSpeed.toStringAsFixed(1)}x',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.gold,
-                  ),
-                ),
-                Slider(
-                  value: tempSpeed,
-                  min: 0.5,
-                  max: 2.0,
-                  divisions: 15,
-                  activeColor: AppColors.gold,
-                  onChanged: (value) {
-                    setModalState(() {
-                      tempSpeed = value;
-                    });
-                  },
-                  onChangeEnd: (value) {
-                    preferences.setTtsSpeed(value);
-                    _ttsService.setSpeed(value);
-                  },
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   void _showThemePicker() {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
@@ -459,12 +403,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          _buildSettingItem(
-            icon: Icons.volume_up,
-            title: 'TTS Hızı',
-            subtitle: '${preferences.ttsSpeed.toStringAsFixed(1)}x',
-            onTap: _showTtsSpeedSlider,
-          ),
 
           Divider(
             color: isDark ? AppColors.textMuted : AppColors.textDarkMuted,
