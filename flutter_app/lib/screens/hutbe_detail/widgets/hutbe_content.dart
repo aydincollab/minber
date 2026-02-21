@@ -36,7 +36,8 @@ class _HutbeContentState extends State<HutbeContent>
   @override
   void initState() {
     super.initState();
-    _paragraphs = _parseParagraphs(widget.hutbe.content);
+    _paragraphs = _parseParagraphs(widget.hutbe.content, widget.hutbe.title);
+
     _pageController = PageController();
     _ttsService.addListener(_onTtsUpdate);
     _pulseController = AnimationController(
@@ -56,39 +57,54 @@ class _HutbeContentState extends State<HutbeContent>
   @override
   void didUpdateWidget(HutbeContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-parse whenever the hutbe content actually arrives (local DB → API)
     if (oldWidget.hutbe.content != widget.hutbe.content &&
         widget.hutbe.content.isNotEmpty) {
-      final newParagraphs = _parseParagraphs(widget.hutbe.content);
-      if (newParagraphs.isNotEmpty) {
-        setState(() {
-          _paragraphs = newParagraphs;
-          _currentPage = 0;
-        });
-        _pageController.jumpToPage(0);
-      }
+      final newParagraphs = _parseParagraphs(widget.hutbe.content, widget.hutbe.title);
+      setState(() {
+        _paragraphs = newParagraphs;
+        _currentPage = 0;
+      });
+      if (_pageController.hasClients) _pageController.jumpToPage(0);
     }
   }
 
-  /// Split content into readable chunks, max ~350 chars each, at sentence boundaries.
-  List<String> _parseParagraphs(String content) {
+  /// Split content into readable chunks (≤350 chars) at sentence boundaries.
+  /// Filters out the title line, date lines, and backend placeholder strings.
+  List<String> _parseParagraphs(String content, [String? title]) {
     final dateRe = RegExp(r'^\d{2}[.\-/]\d{2}[.\-/]\d{4}$');
+    final titleNorm = title?.trim().toLowerCase() ?? '';
 
-    // 1. Split raw content into line-paragraphs, filter metadata
+    // Known backend placeholder fragments (case-insensitive match)
+    const placeholders = [
+      'hutbe içeriği yükleniyor',
+      'içerik yükleniyor',
+      'yükleniyor',
+      'content loading',
+    ];
+
+    // 1. Split raw content into line-paragraphs, filter metadata/placeholders
     final rawParagraphs = content
         .split(RegExp(r'\n+'))
         .map((p) => p.trim())
-        .where((p) =>
-            p.isNotEmpty &&
-            !p.startsWith('Tarih:') &&
-            !p.startsWith('tarih:') &&
-            !dateRe.hasMatch(p))
+        .where((p) {
+          if (p.isEmpty) return false;
+          if (p.startsWith('Tarih:') || p.startsWith('tarih:')) return false;
+          if (dateRe.hasMatch(p)) return false;
+          if (p.length < 15) return false; // skip single-word fragments
+          // Filter title repeated as content
+          if (titleNorm.isNotEmpty && p.trim().toLowerCase() == titleNorm) return false;
+          // Filter placeholder strings
+          final pLower = p.toLowerCase();
+          for (final ph in placeholders) {
+            if (pLower.contains(ph)) return false;
+          }
+          return true;
+        })
         .toList();
 
     // 2. Chunk each raw paragraph into ≤350-char slices at sentence endings
     final chunks = <String>[];
     const maxChars = 350;
-    // Matches end of a Turkish sentence (period/! /? followed by space or end)
     final sentenceEnd = RegExp(r'(?<=[.!?])\s+');
 
     for (final para in rawParagraphs) {

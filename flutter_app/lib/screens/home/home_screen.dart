@@ -315,10 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _pageController.jumpToPage(1);
               },
             ),
-            
-            // Ad Banner
-            const AdBannerWidget(),
-            
+
             // Featured Hutbe
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
