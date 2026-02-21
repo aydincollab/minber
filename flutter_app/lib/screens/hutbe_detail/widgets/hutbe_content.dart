@@ -26,7 +26,8 @@ class HutbeContent extends StatefulWidget {
 class _HutbeContentState extends State<HutbeContent>
     with TickerProviderStateMixin {
   late final PageController _pageController;
-  late final List<String> _paragraphs;
+  List<String> _paragraphs = [];
+
   int _currentPage = 0;
   final TtsService _ttsService = TtsService();
   final ScreenshotController _screenshotController = ScreenshotController();
@@ -50,6 +51,23 @@ class _HutbeContentState extends State<HutbeContent>
     _pageController.dispose();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(HutbeContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-parse whenever the hutbe content actually arrives (local DB → API)
+    if (oldWidget.hutbe.content != widget.hutbe.content &&
+        widget.hutbe.content.isNotEmpty) {
+      final newParagraphs = _parseParagraphs(widget.hutbe.content);
+      if (newParagraphs.isNotEmpty) {
+        setState(() {
+          _paragraphs = newParagraphs;
+          _currentPage = 0;
+        });
+        _pageController.jumpToPage(0);
+      }
+    }
   }
 
   /// Split content into readable chunks, max ~350 chars each, at sentence boundaries.
