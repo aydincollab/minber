@@ -10,32 +10,57 @@ scheduler = AsyncIOScheduler()
 
 
 async def scheduled_scrape_job():
-    """Scheduled job to scrape hutbeler weekly."""
-    logger.info("Starting scheduled hutbe scraping...")
-    
+    """
+    Weekly job — runs every Thursday at 21:00 UTC (00:00 Türkiye).
+    Phase 1: Scrape new hutbe metadata from Diyanet (fast, ~30 sec).
+    Phase 2: Download PDFs and enrich placeholder content (can take a few min).
+             Runs multiple batches until all placeholders are filled.
+    """
+    logger.info("=== Weekly hutbe job starting ===")
+
     async with AsyncSessionLocal() as db:
         try:
-            count = await DiyanetScraper.scrape_and_save_hutbeler(db, limit=5)
-            logger.info(f"Scheduled scraping completed. Saved {count} hutbeler.")
+            # ── Phase 1: metadata ──────────────────────────────────────
+            logger.info("Phase 1: scraping metadata...")
+            count = await DiyanetScraper.scrape_and_save_hutbeler(db, limit=10)
+            logger.info(f"Phase 1 done. Saved/updated {count} hutbeler.")
         except Exception as e:
-            logger.error(f"Error in scheduled scraping: {e}")
+            logger.error(f"Phase 1 failed: {e}")
             await db.rollback()
+
+    # ── Phase 2: PDF enrichment (separate sessions for safety) ────────
+    # Run up to 5 batches of 20 so we catch newly added + any leftovers.
+    total_enriched = 0
+    for batch in range(5):
+        async with AsyncSessionLocal() as db:
+            try:
+                enriched, remaining = await DiyanetScraper.enrich_hutbe_content(db, batch_size=20)
+                total_enriched += enriched
+                logger.info(f"Phase 2 batch {batch + 1}: enriched={enriched}, remaining={remaining}")
+                if remaining == 0:
+                    break
+            except Exception as e:
+                logger.error(f"Phase 2 batch {batch + 1} failed: {e}")
+                await db.rollback()
+                break
+
+    logger.info(f"=== Weekly hutbe job done. Total enriched this run: {total_enriched} ===")
 
 
 def start_scheduler():
     """Start the scheduler with weekly cron job."""
-    # Run every Thursday at 23:00 (11 PM) UTC
-    # Note: Adjust timezone if needed based on deployment location
+    # Every Thursday at 21:00 UTC = 00:00 Türkiye (UTC+3)
+    # Diyanet yeni hutbeyi Perşembe gecesi yayınlar.
     scheduler.add_job(
         scheduled_scrape_job,
-        trigger=CronTrigger(day_of_week='thu', hour=23, minute=0),
+        trigger=CronTrigger(day_of_week='thu', hour=21, minute=0, timezone='UTC'),
         id='weekly_hutbe_scraper',
-        name='Weekly Hutbe Scraper',
+        name='Weekly Hutbe Scraper (scrape + enrich)',
         replace_existing=True,
     )
-    
+
     scheduler.start()
-    logger.info("Scheduler started. Hutbe scraper will run every Thursday at 23:00 UTC.")
+    logger.info("Scheduler started — weekly hutbe job will run every Thursday 21:00 UTC (00:00 TR).")
 
 
 def stop_scheduler():
