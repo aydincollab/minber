@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     SCRAPER_ENABLED: bool = True
     DIYANET_BASE_URL: str = "https://dinhizmetleri.diyanet.gov.tr"
     
+    # Admin secret — set a strong random value in Railway env vars!
+    # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+    ADMIN_SECRET: str = "change-me-set-a-strong-secret-in-railway"
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

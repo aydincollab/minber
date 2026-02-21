@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 import requests
+from typing import Optional
 
 from app.config import get_settings
 from app.database import init_db, get_db
@@ -60,11 +61,19 @@ async def lifespan(app: FastAPI):
 
 
 # Create FastAPI app
+# Disable interactive docs in production to hide admin endpoints from public
+_docs_url = "/docs" if settings.ENVIRONMENT == "development" else None
+_redoc_url = "/redoc" if settings.ENVIRONMENT == "development" else None
+_openapi_url = "/openapi.json" if settings.ENVIRONMENT == "development" else None
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="API for Minber - Hutbe & Namaz Vakitleri Uygulaması",
     lifespan=lifespan,
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
+    openapi_url=_openapi_url,
 )
 
 # Configure CORS
@@ -79,6 +88,16 @@ app.add_middleware(
 # Include routers
 app.include_router(hutbe.router, prefix=settings.API_V1_PREFIX)
 app.include_router(prayer.router, prefix=settings.API_V1_PREFIX)
+
+# ── Admin dependency ──────────────────────────────────────────────────────────
+def admin_required(x_admin_secret: Optional[str] = Header(None)):
+    """
+    Protect destructive/expensive endpoints with a shared secret.
+    Set ADMIN_SECRET env var on Railway to a strong random value.
+    Pass the secret as the X-Admin-Secret header.
+    """
+    if not x_admin_secret or x_admin_secret != settings.ADMIN_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized: invalid or missing X-Admin-Secret header")
 
 
 @app.get("/")
@@ -97,7 +116,7 @@ async def health_check():
     return {"status": "healthy"}
 
 
-@app.get(f"{settings.API_V1_PREFIX}/scraper/test")
+@app.get(f"{settings.API_V1_PREFIX}/scraper/test", dependencies=[Depends(admin_required)])
 async def test_scraper():
     """Test scraper with full pagination and PDF extraction."""
     import traceback
@@ -164,7 +183,7 @@ async def test_scraper():
         return {"error": str(e), "traceback": traceback.format_exc()}
 
 
-@app.post(f"{settings.API_V1_PREFIX}/scraper/run")
+@app.post(f"{settings.API_V1_PREFIX}/scraper/run", dependencies=[Depends(admin_required)])
 async def manual_scraper_run(
     db = Depends(get_db),
 ):
@@ -176,7 +195,7 @@ async def manual_scraper_run(
         return {"status": "error", "error": str(e)}
 
 
-@app.post(f"{settings.API_V1_PREFIX}/scraper/enrich")
+@app.post(f"{settings.API_V1_PREFIX}/scraper/enrich", dependencies=[Depends(admin_required)])
 async def enrich_hutbe_content(
     batch_size: int = 20,
     db = Depends(get_db),
@@ -194,7 +213,7 @@ async def enrich_hutbe_content(
         return {"status": "error", "error": str(e)}
 
 
-@app.post(f"{settings.API_V1_PREFIX}/scraper/reset-content")
+@app.post(f"{settings.API_V1_PREFIX}/scraper/reset-content", dependencies=[Depends(admin_required)])
 async def reset_hutbe_content(
     db = Depends(get_db),
 ):
@@ -215,7 +234,7 @@ async def reset_hutbe_content(
         return {"status": "error", "error": str(e)}
 
 
-@app.post(f"{settings.API_V1_PREFIX}/scraper/import-seed")
+@app.post(f"{settings.API_V1_PREFIX}/scraper/import-seed", dependencies=[Depends(admin_required)])
 async def import_seed_data(
     body: dict,
     db = Depends(get_db),
