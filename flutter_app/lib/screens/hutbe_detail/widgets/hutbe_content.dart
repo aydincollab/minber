@@ -242,9 +242,10 @@ class _HutbeContentState extends State<HutbeContent>
               Text(paragraph,
                   style: const TextStyle(
                       fontFamily: 'Amiri',
-                      fontSize: 20,
+                      fontSize: 18,
                       height: 1.85,
                       color: Colors.white)),
+
 
               const SizedBox(height: 20),
               const Divider(color: Color(0xFF1D4A2A), height: 1),
@@ -396,11 +397,34 @@ class _HutbeContentState extends State<HutbeContent>
 
         // ── Paragraph cards ──────────────────────────────────────────
         if (_paragraphs.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(40),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 60),
             child: Center(
-              child: Text('İçerik yükleniyor...',
-                  style: TextStyle(color: AppColors.textMuted)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.article_outlined,
+                      size: 48,
+                      color: AppColors.textMuted.withOpacity(0.4)),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'İçeriğe şu an ulaşılamıyor',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Bu hutbenin içeriği henüz işlenmemiş olabilir.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: AppColors.textMuted.withOpacity(0.6),
+                        fontSize: 13),
+                  ),
+                ],
+              ),
             ),
           )
         else
@@ -487,7 +511,7 @@ class _HutbeContentState extends State<HutbeContent>
                               text,
                               style: const TextStyle(
                                 fontFamily: 'Amiri',
-                                fontSize: 20,
+                                fontSize: 18,
                                 height: 1.85,
                                 color: Colors.white,
                                 letterSpacing: 0.15,
