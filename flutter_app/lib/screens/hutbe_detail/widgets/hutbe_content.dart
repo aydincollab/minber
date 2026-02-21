@@ -52,10 +52,12 @@ class _HutbeContentState extends State<HutbeContent>
     super.dispose();
   }
 
-  /// Split content into clean paragraphs, filtering out date/metadata lines.
+  /// Split content into readable chunks, max ~350 chars each, at sentence boundaries.
   List<String> _parseParagraphs(String content) {
     final dateRe = RegExp(r'^\d{2}[.\-/]\d{2}[.\-/]\d{4}$');
-    return content
+
+    // 1. Split raw content into line-paragraphs, filter metadata
+    final rawParagraphs = content
         .split(RegExp(r'\n+'))
         .map((p) => p.trim())
         .where((p) =>
@@ -64,6 +66,32 @@ class _HutbeContentState extends State<HutbeContent>
             !p.startsWith('tarih:') &&
             !dateRe.hasMatch(p))
         .toList();
+
+    // 2. Chunk each raw paragraph into ≤350-char slices at sentence endings
+    final chunks = <String>[];
+    const maxChars = 350;
+    // Matches end of a Turkish sentence (period/! /? followed by space or end)
+    final sentenceEnd = RegExp(r'(?<=[.!?])\s+');
+
+    for (final para in rawParagraphs) {
+      if (para.length <= maxChars) {
+        chunks.add(para);
+        continue;
+      }
+      final sentences = para.split(sentenceEnd);
+      var buf = '';
+      for (final s in sentences) {
+        final candidate = buf.isEmpty ? s : '$buf $s';
+        if (candidate.length <= maxChars) {
+          buf = candidate;
+        } else {
+          if (buf.isNotEmpty) chunks.add(buf.trim());
+          buf = s;
+        }
+      }
+      if (buf.isNotEmpty) chunks.add(buf.trim());
+    }
+    return chunks.isEmpty ? rawParagraphs : chunks;
   }
 
   void _onTtsUpdate() {
@@ -92,15 +120,6 @@ class _HutbeContentState extends State<HutbeContent>
     if (_ttsService.isPlaying || _ttsService.isPaused) {
       _ttsService.jumpTo(index);
     }
-  }
-
-  /// Adaptive font size based on paragraph length.
-  double _fontSize(String text) {
-    final len = text.length;
-    if (len < 150) return 22;
-    if (len < 300) return 19;
-    if (len < 500) return 17;
-    return 15;
   }
 
   void _showShareMenu() {
@@ -187,11 +206,12 @@ class _HutbeContentState extends State<HutbeContent>
               ),
               const SizedBox(height: 16),
               Text(paragraph,
-                  style: TextStyle(
+                  style: const TextStyle(
                       fontFamily: 'Amiri',
-                      fontSize: _fontSize(paragraph),
+                      fontSize: 20,
                       height: 1.85,
                       color: Colors.white)),
+
               const SizedBox(height: 20),
               const Divider(color: Color(0xFF1D4A2A), height: 1),
               const SizedBox(height: 12),
@@ -362,7 +382,6 @@ class _HutbeContentState extends State<HutbeContent>
                     _ttsService.isPlaying &&
                     _ttsService.currentParagraphIndex == index;
                 final text = _paragraphs[index];
-                final fs = _fontSize(text);
 
                 return GestureDetector(
                   onLongPress: _showShareMenu,
@@ -425,25 +444,19 @@ class _HutbeContentState extends State<HutbeContent>
                                   height: 1)),
                         ),
 
-                        // Main text — fills card, no scrolling
+                        // Text — fixed readable size, no inner scroll
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 52, 24, 52),
-                          child: Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.topLeft,
-                              child: SizedBox(
-                                width: size.width - 88,
-                                child: Text(
-                                  text,
-                                  style: TextStyle(
-                                    fontFamily: 'Amiri',
-                                    fontSize: fs,
-                                    height: 1.85,
-                                    color: Colors.white.withOpacity(0.93),
-                                    letterSpacing: 0.1,
-                                  ),
-                                ),
+                          padding: const EdgeInsets.fromLTRB(24, 52, 24, 40),
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: Text(
+                              text,
+                              style: const TextStyle(
+                                fontFamily: 'Amiri',
+                                fontSize: 20,
+                                height: 1.85,
+                                color: Colors.white,
+                                letterSpacing: 0.15,
                               ),
                             ),
                           ),
