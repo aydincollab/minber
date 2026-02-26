@@ -49,11 +49,11 @@ async def scheduled_scrape_job():
 
 def start_scheduler():
     """Start the scheduler with weekly cron job."""
-    # Every Thursday at 21:00 UTC = 00:00 Türkiye (UTC+3)
-    # Diyanet yeni hutbeyi Perşembe gecesi yayınlar.
+    # Every Friday at 05:00 UTC = 08:00 Türkiye (UTC+3)
+    # Diyanet publishes the hutbe by Friday morning; scraping at 08:00 TR ensures it's available.
     scheduler.add_job(
         scheduled_scrape_job,
-        trigger=CronTrigger(day_of_week='thu', hour=21, minute=0, timezone='UTC'),
+        trigger=CronTrigger(day_of_week='fri', hour=5, minute=0, timezone='UTC'),
         id='weekly_hutbe_scraper',
         name='Weekly Hutbe Scraper (scrape + enrich)',
         replace_existing=True,

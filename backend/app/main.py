@@ -94,10 +94,11 @@ def admin_required(x_admin_secret: Optional[str] = Header(None)):
     """
     Protect destructive/expensive endpoints with a shared secret.
     Set ADMIN_SECRET env var on Railway to a strong random value.
-    Pass the secret as the X-Admin-Secret header.
+    Pass the secret as X-Admin-Secret header.
     """
     if not x_admin_secret or x_admin_secret != settings.ADMIN_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorized: invalid or missing X-Admin-Secret header")
+
 
 
 @app.get("/")
