@@ -69,6 +69,9 @@ dependencies:
   # Screenshot / Quote card sharing
   screenshot: ^3.0.0
 
+  # URL launching (mailto, store links)
+  url_launcher: ^6.3.0
+
 
 
 dev_dependencies:

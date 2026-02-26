@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/preferences_provider.dart';
@@ -303,6 +304,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _contactUs() async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: 'appminber@gmail.com',
+      queryParameters: {
+        'subject': 'Minber Uygulama Geri Bildirimi',
+      },
+    );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _rateApp() async {
+    // TODO: Replace with actual Play Store URL after publishing
+    const storeUrl = 'https://play.google.com/store/apps';
+    final uri = Uri.parse(storeUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -439,6 +462,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () {
               _shareService.shareApp();
             },
+          ),
+
+          Divider(
+            color: isDark ? AppColors.textMuted : AppColors.textDarkMuted,
+            height: 1,
+            thickness: 0.5,
+          ),
+
+          _buildSettingItem(
+            icon: Icons.star_border,
+            title: 'Değerlendir',
+            subtitle: 'Google Play\'da puan verin',
+            onTap: _rateApp,
+          ),
+
+          _buildSettingItem(
+            icon: Icons.mail_outline,
+            title: 'Bize Ulaşın',
+            subtitle: 'Görüş ve önerileriniz için',
+            onTap: _contactUs,
           ),
         ],
       ),
