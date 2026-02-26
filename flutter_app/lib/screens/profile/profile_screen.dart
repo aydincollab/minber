@@ -317,15 +317,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _rateApp() async {
-    // TODO: Replace with actual Play Store URL after publishing
-    const storeUrl = 'https://play.google.com/store/apps';
-    final uri = Uri.parse(storeUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -445,10 +436,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'Değerlendir',
             subtitle: 'Bizi değerlendirin',
             onTap: () {
-              // TODO: Open app store
+              // TODO: Play Store URL after publishing
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Mağaza sayfası açılacak'),
+                  content: Text('Yakında mevcut olacak!'),
                   backgroundColor: AppColors.emerald,
                 ),
               );
@@ -464,25 +455,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
 
-          Divider(
-            color: isDark ? AppColors.textMuted : AppColors.textDarkMuted,
-            height: 1,
-            thickness: 0.5,
-          ),
-
-          _buildSettingItem(
-            icon: Icons.star_border,
-            title: 'Değerlendir',
-            subtitle: 'Google Play\'da puan verin',
-            onTap: _rateApp,
-          ),
-
           _buildSettingItem(
             icon: Icons.mail_outline,
             title: 'Bize Ulaşın',
             subtitle: 'Görüş ve önerileriniz için',
             onTap: _contactUs,
           ),
+
         ],
       ),
     );
