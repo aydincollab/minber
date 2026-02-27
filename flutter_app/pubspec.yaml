@@ -72,6 +72,9 @@ dependencies:
   # URL launching (mailto, store links)
   url_launcher: ^6.3.0
 
+  # Compass / Qibla
+  flutter_compass: ^0.7.0
+
 
 
 dev_dependencies:
