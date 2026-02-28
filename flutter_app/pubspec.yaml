@@ -75,6 +75,9 @@ dependencies:
   # Compass / Qibla
   flutter_compass: ^0.8.1
 
+  # Audio (splash screen intro)
+  audioplayers: ^6.1.0
+
 
 
 dev_dependencies:
@@ -99,3 +102,5 @@ flutter:
   assets:
     - assets/animations/
     - assets/images/
+    - assets/audio/
+

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_colors.dart';
 import '../onboarding/onboarding_screen.dart';
@@ -21,6 +22,8 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeAnim;
   late Animation<double> _glowAnim;
   late Animation<double> _starsAnim;
+
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -58,11 +61,16 @@ class _SplashScreenState extends State<SplashScreen>
     _riseController.forward();
     _starsController.forward();
 
+    // Play intro audio
+    _audioPlayer.play(AssetSource('audio/intro.mp3'));
+
     _navigateToNextScreen();
   }
 
   @override
   void dispose() {
+    _audioPlayer.stop();
+    _audioPlayer.dispose();
     _riseController.dispose();
     _glowController.dispose();
     _starsController.dispose();
