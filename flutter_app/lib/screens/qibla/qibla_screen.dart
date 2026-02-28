@@ -15,11 +15,11 @@ class QiblaScreen extends StatefulWidget {
 
 class _QiblaScreenState extends State<QiblaScreen>
     with SingleTickerProviderStateMixin {
-  double? _deviceHeading; // degrees from north, 0‑360
-  double? _qiblaAngle;   // bearing to Mecca from user location
+  double? _deviceHeading;
+  double? _qiblaAngle;
   String _statusMsg = 'Konum alınıyor...';
+  String _locationLabel = '';
 
-  // Mecca coordinates
   static const double _meccaLat = 21.3891;
   static const double _meccaLon = 39.8579;
 
@@ -31,24 +31,22 @@ class _QiblaScreenState extends State<QiblaScreen>
 
   Future<void> _initQibla() async {
     try {
-      // 1. Get user location
       final locationService = LocationService();
       final prefs = Provider.of<PreferencesProvider>(context, listen: false);
 
       double? userLat;
       double? userLon;
 
-      // Try device GPS first
       final position = await locationService.getCurrentPosition();
       if (position != null) {
         userLat = position.latitude;
         userLon = position.longitude;
+        if (mounted) setState(() => _locationLabel = 'GPS konumunuza göre hesaplandı');
       } else {
-        // Fall back to city-based coordinates
         final cityCoords = _cityCoords(prefs.city);
         userLat = cityCoords.$1;
         userLon = cityCoords.$2;
-        if (mounted) setState(() => _statusMsg = '${prefs.city} konumuna göre');
+        if (mounted) setState(() => _locationLabel = '${prefs.city} şehir konumuna göre hesaplandı');
       }
 
       if (userLat != null && userLon != null) {
@@ -64,6 +62,7 @@ class _QiblaScreenState extends State<QiblaScreen>
       if (mounted) setState(() => _statusMsg = 'Konum alınamadı');
     }
   }
+
 
   /// Spherical bearing from (lat1,lon1) to (lat2,lon2) in degrees 0‑360.
   double _calculateBearing(double lat1, double lon1, double lat2, double lon2) {
@@ -154,6 +153,16 @@ class _QiblaScreenState extends State<QiblaScreen>
               child: Text(
                 _statusMsg,
                 style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+          if (_locationLabel.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+              child: Text(
+                _locationLabel,
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                 textAlign: TextAlign.center,
               ),
             ),
