@@ -16,7 +16,8 @@ class QiblaScreen extends StatefulWidget {
 class _QiblaScreenState extends State<QiblaScreen>
     with SingleTickerProviderStateMixin {
   double? _deviceHeading;
-  double? _qiblaAngle;
+  double? _qiblaAngle;       // magnetic bearing (for needle — matches flutter_compass)
+  double? _qiblaTrueBearing; // true geographic bearing (for display label)
   String _statusMsg = 'Konum alınıyor...';
   String _locationLabel = '';
 
@@ -36,24 +37,31 @@ class _QiblaScreenState extends State<QiblaScreen>
 
       double? userLat;
       double? userLon;
+      double decl;
 
       final position = await locationService.getCurrentPosition();
       if (position != null) {
         userLat = position.latitude;
         userLon = position.longitude;
+        decl = 5.2; // approximate for Turkey
         if (mounted) setState(() => _locationLabel = 'GPS konumunuza göre hesaplandı');
       } else {
         final cityCoords = _cityCoords(prefs.city);
         userLat = cityCoords.$1;
         userLon = cityCoords.$2;
+        decl = _magneticDeclination(prefs.city);
         if (mounted) setState(() => _locationLabel = '${prefs.city} şehir konumuna göre hesaplandı');
       }
 
       if (userLat != null && userLon != null) {
-        final bearing = _calculateBearing(userLat, userLon, _meccaLat, _meccaLon);
+        final trueBearing = _calculateBearing(userLat, userLon, _meccaLat, _meccaLon);
+        // Magnetic bearing = true bearing - magnetic declination
+        // flutter_compass gives magnetic heading, so we need magnetic qibla to match
+        final magneticBearing = (trueBearing - decl + 360) % 360;
         if (mounted) {
           setState(() {
-            _qiblaAngle = bearing;
+            _qiblaTrueBearing = trueBearing;
+            _qiblaAngle = magneticBearing;
             _statusMsg = '';
           });
         }
@@ -62,6 +70,7 @@ class _QiblaScreenState extends State<QiblaScreen>
       if (mounted) setState(() => _statusMsg = 'Konum alınamadı');
     }
   }
+
 
 
   /// Spherical bearing from (lat1,lon1) to (lat2,lon2) in degrees 0‑360.
@@ -85,8 +94,27 @@ class _QiblaScreenState extends State<QiblaScreen>
       'Konya': (37.875, 32.492),
       'Erzurum': (39.904, 41.267),
     };
-    return coords[city] ?? (39.925, 32.836); // default Ankara
+    return coords[city] ?? (39.925, 32.836);
   }
+
+  /// Magnetic declination for Turkey in 2026 (degrees East, positive).
+  /// flutter_compass gives MAGNETIC heading; qibla formula gives TRUE bearing.
+  /// We subtract declination to convert true → magnetic bearing so they match.
+  /// Sources: World Magnetic Model (WMM2025) ~ 5.0°–5.7° for Turkey.
+  double _magneticDeclination(String city) {
+    const Map<String, double> decl = {
+      'İstanbul': 5.5,
+      'Ankara':   5.2,
+      'İzmir':    5.5,
+      'Bursa':    5.3,
+      'Antalya':  5.0,
+      'Adana':    5.1,
+      'Konya':    5.1,
+      'Erzurum':  5.7,
+    };
+    return decl[city] ?? 5.2; // default ~Turkey average
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -246,12 +274,18 @@ class _QiblaScreenState extends State<QiblaScreen>
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Kıble Açısı (Kuzeyden)',
+                    'Pusula Kıble Açısı',
                     style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                   ),
+                  if (_qiblaTrueBearing != null)
+                    Text(
+                      '(Coğrafi: ${_qiblaTrueBearing!.toStringAsFixed(1)}°)',
+                      style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                    ),
                 ],
               ),
             ),
+
         ],
       ),
     );
