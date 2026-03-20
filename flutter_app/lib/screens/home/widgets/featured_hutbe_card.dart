@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 import 'package:intl/intl.dart';
 import '../../../theme/app_colors.dart';
 import '../../../models/hutbe.dart';
@@ -21,7 +22,6 @@ class _FeaturedHutbeCardState extends State<FeaturedHutbeCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnim;
-  bool _pressed = false;
 
   @override
   void initState() {
@@ -46,19 +46,12 @@ class _FeaturedHutbeCardState extends State<FeaturedHutbeCard>
     if (widget.hutbe == null) return _buildPlaceholder();
 
     return GestureDetector(
-      onTapDown: (_) {
-        setState(() => _pressed = true);
-        _controller.forward();
-      },
+      onTapDown: (_) => _controller.forward(),
       onTapUp: (_) {
-        setState(() => _pressed = false);
         _controller.reverse();
         widget.onTap?.call();
       },
-      onTapCancel: () {
-        setState(() => _pressed = false);
-        _controller.reverse();
-      },
+      onTapCancel: () => _controller.reverse(),
       child: AnimatedBuilder(
         animation: _scaleAnim,
         builder: (context, child) => Transform.scale(
@@ -71,13 +64,12 @@ class _FeaturedHutbeCardState extends State<FeaturedHutbeCard>
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: AppColors.emerald.withOpacity(0.4),
+                color: AppColors.emerald.withOpacity(0.45),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
-                spreadRadius: 0,
               ),
               BoxShadow(
-                color: AppColors.gold.withOpacity(0.15),
+                color: AppColors.gold.withOpacity(0.12),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -85,76 +77,50 @@ class _FeaturedHutbeCardState extends State<FeaturedHutbeCard>
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
-            child: Container(
-              height: 200,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  stops: [0.0, 0.5, 1.0],
-                  colors: [
-                    Color(0xFF1B6B42), // rich emerald
-                    Color(0xFF14532D), // deep emerald
-                    Color(0xFF0D3B20), // darkest emerald
-                  ],
-                ),
-              ),
+            child: SizedBox(
+              height: 210,
               child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  // Decorative golden arc top-right
-                  Positioned(
-                    top: -30,
-                    right: -30,
-                    child: Container(
-                      width: 130,
-                      height: 130,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.gold.withOpacity(0.25),
-                          width: 2,
-                        ),
-                      ),
-                    ),
+                  // Background mosque image
+                  Image.asset(
+                    'assets/images/mosque_featured.jpg',
+                    fit: BoxFit.cover,
                   ),
-                  Positioned(
-                    top: -10,
-                    right: -10,
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.gold.withOpacity(0.08),
+
+                  // Dark gradient overlay for readability
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.0, 0.35, 1.0],
+                        colors: [
+                          Colors.black.withOpacity(0.3),
+                          Colors.black.withOpacity(0.1),
+                          Colors.black.withOpacity(0.75),
+                        ],
                       ),
                     ),
                   ),
 
-                  // Mosque emoji — faded watermark
-                  const Positioned(
-                    right: 12,
-                    bottom: 0,
-                    child: Text(
-                      '🕌',
-                      style: TextStyle(fontSize: 90, height: 1),
-                    ),
-                  ),
-                  // mask the emoji with opacity
-                  Positioned(
-                    right: 12,
-                    bottom: 0,
-                    child: Container(
-                      width: 110,
-                      height: 110,
-                      color: const Color(0xFF14532D).withOpacity(0.55),
+                  // Emerald tint overlay (brand feel)
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.emerald.withOpacity(0.25),
+                          Colors.transparent,
+                        ],
+                      ),
                     ),
                   ),
 
-                  // Shimmer line at top
+                  // Gold shimmer line at top
                   Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
+                    top: 0, left: 0, right: 0,
                     child: Container(
                       height: 2,
                       decoration: const BoxDecoration(
@@ -169,73 +135,65 @@ class _FeaturedHutbeCardState extends State<FeaturedHutbeCard>
                     ),
                   ),
 
-                  // "Bu Haftanın Hutbesi" badge
+                  // Badge — "Bu Haftanın Hutbesi"
                   Positioned(
                     top: 16,
                     left: 16,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.gold, AppColors.goldLight],
-                        ),
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.gold.withOpacity(0.4),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('🌙', style: TextStyle(fontSize: 11)),
-                          SizedBox(width: 5),
-                          Text(
-                            'Bu Haftanın Hutbesi',
-                            style: TextStyle(
-                              color: AppColors.dark,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.3,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(30),
+                      child: BackdropFilter(
+                        filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppColors.gold, AppColors.goldLight],
                             ),
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.gold.withOpacity(0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
-                        ],
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.auto_awesome_rounded,
+                                  size: 11, color: AppColors.dark),
+                              SizedBox(width: 5),
+                              Text(
+                                'Bu Haftanın Hutbesi',
+                                style: TextStyle(
+                                  color: AppColors.dark,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
 
-                  // Content — bottom aligned
+                  // Bottom content
                   Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(20, 32, 100, 20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.5),
-                          ],
-                        ),
-                      ),
+                    bottom: 0, left: 0, right: 0,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Date + reading time row
+                          // Date + reading time
                           Row(
                             children: [
-                              const Icon(
-                                Icons.calendar_today_rounded,
-                                size: 12,
-                                color: AppColors.gold,
-                              ),
+                              const Icon(Icons.calendar_today_rounded,
+                                  size: 12, color: AppColors.gold),
                               const SizedBox(width: 5),
                               Text(
                                 DateFormat('dd MMMM yyyy', 'tr_TR')
@@ -247,11 +205,8 @@ class _FeaturedHutbeCardState extends State<FeaturedHutbeCard>
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              const Icon(
-                                Icons.menu_book_rounded,
-                                size: 12,
-                                color: AppColors.textMuted,
-                              ),
+                              const Icon(Icons.menu_book_rounded,
+                                  size: 12, color: AppColors.textMuted),
                               const SizedBox(width: 4),
                               Text(
                                 '${widget.hutbe!.readingTimeMinutes ?? 5} dk',
@@ -322,17 +277,9 @@ class _FeaturedHutbeCardState extends State<FeaturedHutbeCard>
   Widget _buildPlaceholder() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      height: 200,
+      height: 210,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1B6B42),
-            Color(0xFF0D3B20),
-          ],
-        ),
         boxShadow: [
           BoxShadow(
             color: AppColors.emerald.withOpacity(0.3),
@@ -341,27 +288,39 @@ class _FeaturedHutbeCardState extends State<FeaturedHutbeCard>
           ),
         ],
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            const Text('🕌', style: TextStyle(fontSize: 44)),
-            const SizedBox(height: 12),
-            Text(
-              'Bu Haftanın Hutbesi',
-              style: TextStyle(
-                color: AppColors.gold.withOpacity(0.9),
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
+            Image.asset(
+              'assets/images/mosque_featured.jpg',
+              fit: BoxFit.cover,
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Yükleniyor...',
-              style: TextStyle(
-                color: AppColors.textMuted.withOpacity(0.7),
-                fontSize: 13,
-              ),
+            Container(color: Colors.black.withOpacity(0.55)),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.menu_book_outlined,
+                    size: 40, color: AppColors.gold),
+                const SizedBox(height: 12),
+                Text(
+                  'Bu Haftanın Hutbesi',
+                  style: TextStyle(
+                    color: AppColors.gold.withOpacity(0.9),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Yükleniyor...',
+                  style: TextStyle(
+                    color: AppColors.textMuted.withOpacity(0.7),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

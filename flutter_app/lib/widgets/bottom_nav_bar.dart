@@ -15,27 +15,27 @@ class BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 72,
+      height: 68,
       decoration: BoxDecoration(
-        color: AppColors.darkMid.withOpacity(0.95),
+        color: AppColors.darkMid.withOpacity(0.97),
         border: Border(
           top: BorderSide(
-            color: AppColors.textMuted.withOpacity(0.1),
-            width: 1,
+            color: AppColors.gold.withOpacity(0.12),
+            width: 0.8,
           ),
         ),
       ),
       child: ClipRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              Expanded(child: _buildNavItem(0, '🏠', 'Ana Sayfa')),
-              Expanded(child: _buildNavItem(1, '📖', 'Hutbeler')),
-              Expanded(child: _buildNavItem(2, '🕌', 'Vakitler')),
-              Expanded(child: _buildNavItem(3, '🔖', 'Kaydedilen')),
-              Expanded(child: _buildNavItem(4, '👤', 'Profil')),
+              Expanded(child: _buildNavItem(0, Icons.home_outlined, Icons.home, 'Ana Sayfa')),
+              Expanded(child: _buildNavItem(1, Icons.menu_book_outlined, Icons.menu_book, 'Hutbeler')),
+              Expanded(child: _buildNavItem(2, Icons.access_time_outlined, Icons.access_time, 'Vakitler')),
+              Expanded(child: _buildNavItem(3, Icons.bookmark_outline, Icons.bookmark, 'Kaydedilen')),
+              Expanded(child: _buildNavItem(4, Icons.person_outline, Icons.person, 'Profil')),
             ],
           ),
         ),
@@ -43,42 +43,43 @@ class BottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(int index, String emoji, String label) {
+  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
     final isActive = currentIndex == index;
 
     return GestureDetector(
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
               decoration: BoxDecoration(
                 color: isActive
-                    ? AppColors.gold.withOpacity(0.2)
+                    ? AppColors.gold.withOpacity(0.15)
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(
-                emoji,
-                style: TextStyle(
-                  fontSize: isActive ? 22 : 20,
-                ),
+              child: Icon(
+                isActive ? activeIcon : icon,
+                size: 22,
+                color: isActive ? AppColors.gold : AppColors.textMuted.withOpacity(0.7),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            const SizedBox(height: 3),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
               style: TextStyle(
-                fontSize: 9,
-                color: isActive ? AppColors.gold : AppColors.textMuted,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                fontSize: 9.5,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                color: isActive ? AppColors.gold : AppColors.textMuted.withOpacity(0.6),
+                letterSpacing: 0.2,
               ),
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
           ],
         ),
