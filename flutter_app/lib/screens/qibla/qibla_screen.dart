@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
@@ -19,7 +20,7 @@ class _QiblaScreenState extends State<QiblaScreen>
   double? _qiblaAngle;       // magnetic bearing (for needle — matches flutter_compass)
   double? _qiblaTrueBearing; // true geographic bearing (for display label)
   String _statusMsg = 'Konum alınıyor...';
-  String _locationLabel = '';
+  bool _wasAligned = false;  // haptic tracker
 
   static const double _meccaLat = 21.3891;
   static const double _meccaLon = 39.8579;
@@ -146,6 +147,17 @@ class _QiblaScreenState extends State<QiblaScreen>
           final heading = snapshot.data?.heading;
           if (heading != null) _deviceHeading = heading;
 
+          // Haptic feedback when user first aligns to Qibla
+          final q = _qiblaAngle;
+          if (q != null && heading != null) {
+            final diff = (q - heading).abs();
+            final aligned = diff < 5 || diff > 355;
+            if (aligned && !_wasAligned) {
+              HapticFeedback.mediumImpact();
+            }
+            _wasAligned = aligned;
+          }
+
           return _buildCompassUI();
         },
       ),
@@ -185,15 +197,7 @@ class _QiblaScreenState extends State<QiblaScreen>
               ),
             ),
 
-          if (_locationLabel.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
-              child: Text(
-                _locationLabel,
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                textAlign: TextAlign.center,
-              ),
-            ),
+
 
           if (isAligned)
             Container(

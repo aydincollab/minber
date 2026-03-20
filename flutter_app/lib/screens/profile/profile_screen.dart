@@ -397,12 +397,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: _showCityPicker,
           ),
 
-          _buildSettingItem(
-            icon: Icons.mosque,
-            title: 'Namaz Vakti Hesaplama',
-            subtitle: preferences.prayerMethod,
-            onTap: _showPrayerMethodPicker,
-          ),
+
 
           _buildSettingItem(
             icon: Icons.notifications,
