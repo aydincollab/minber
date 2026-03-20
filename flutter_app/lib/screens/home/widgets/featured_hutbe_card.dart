@@ -86,6 +86,15 @@ class _FeaturedHutbeCardState extends State<FeaturedHutbeCard>
                   Image.asset(
                     'assets/images/mosque_featured.jpg',
                     fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF1B6B42), Color(0xFF0D3B20)],
+                        ),
+                      ),
+                    ),
                   ),
 
                   // Dark gradient overlay for readability
@@ -296,6 +305,9 @@ class _FeaturedHutbeCardState extends State<FeaturedHutbeCard>
             Image.asset(
               'assets/images/mosque_featured.jpg',
               fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: const Color(0xFF1B6B42),
+              ),
             ),
             Container(color: Colors.black.withOpacity(0.55)),
             Column(

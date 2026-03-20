@@ -147,13 +147,15 @@ class _QiblaScreenState extends State<QiblaScreen>
           final heading = snapshot.data?.heading;
           if (heading != null) _deviceHeading = heading;
 
-          // Haptic feedback when user first aligns to Qibla
+          // Haptic feedback — schedule after frame to avoid calling during build
           final q = _qiblaAngle;
           if (q != null && heading != null) {
             final diff = (q - heading).abs();
             final aligned = diff < 5 || diff > 355;
             if (aligned && !_wasAligned) {
-              HapticFeedback.mediumImpact();
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                HapticFeedback.mediumImpact();
+              });
             }
             _wasAligned = aligned;
           }
