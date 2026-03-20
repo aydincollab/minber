@@ -171,7 +171,7 @@ class _FeaturedHutbeCardState extends State<FeaturedHutbeCard>
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.auto_awesome_rounded,
+                              Icon(Icons.brightness_3,
                                   size: 11, color: AppColors.dark),
                               SizedBox(width: 5),
                               Text(

@@ -239,10 +239,6 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                       _buildLocationCard(),
                       const SizedBox(height: 20),
 
-                      // Current prayer
-                      _buildCurrentPrayerCard(),
-                      const SizedBox(height: 20),
-
                       // All prayer times
                       _buildPrayerTimesList(),
                     ],
@@ -341,12 +337,12 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     if (_prayerTimings == null) return const SizedBox.shrink();
 
     final prayers = [
-      {'name': 'İmsak', 'time': _prayerTimings!.imsak, 'icon': '🌑'},
-      {'name': 'Güneş', 'time': _prayerTimings!.sunrise, 'icon': '🌅'},
-      {'name': 'Öğle', 'time': _prayerTimings!.dhuhr, 'icon': '☀️'},
-      {'name': 'İkindi', 'time': _prayerTimings!.asr, 'icon': '🌤️'},
-      {'name': 'Akşam', 'time': _prayerTimings!.maghrib, 'icon': '🌆'},
-      {'name': 'Yatsı', 'time': _prayerTimings!.isha, 'icon': '🌙'},
+      {'name': 'İmsak',  'time': _prayerTimings!.imsak,   'icon': Icons.nights_stay},
+      {'name': 'Güneş',  'time': _prayerTimings!.sunrise,  'icon': Icons.wb_twilight},
+      {'name': 'Öğle',   'time': _prayerTimings!.dhuhr,   'icon': Icons.wb_sunny},
+      {'name': 'İkindi', 'time': _prayerTimings!.asr,     'icon': Icons.light_mode},
+      {'name': 'Akşam',  'time': _prayerTimings!.maghrib, 'icon': Icons.wb_twilight},
+      {'name': 'Yatsı',  'time': _prayerTimings!.isha,    'icon': Icons.bedtime},
     ];
 
     final currentPrayer = _getCurrentPrayer();
@@ -368,7 +364,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           return _buildPrayerTimeItem(
             prayer['name'] as String,
             prayer['time'] as String,
-            prayer['icon'] as String,
+            prayer['icon'] as IconData,
             isCurrent: isCurrent,
           );
         }).toList(),
@@ -379,7 +375,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
   Widget _buildPrayerTimeItem(
     String name,
     String time,
-    String icon, {
+    IconData icon, {
     bool isCurrent = false,
   }) {
     return Container(
@@ -387,32 +383,29 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isCurrent
-            ? AppColors.gold.withOpacity(0.2)
+            ? AppColors.gold.withOpacity(0.15)
             : Colors.white.withOpacity(0.03),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isCurrent
-              ? AppColors.gold
-              : Colors.transparent,
-          width: 2,
+          color: isCurrent ? AppColors.gold : Colors.transparent,
+          width: 1.5,
         ),
       ),
       child: Row(
         children: [
           Container(
-            width: 50,
-            height: 50,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: isCurrent
-                  ? AppColors.gold.withOpacity(0.3)
-                  : AppColors.textMuted.withOpacity(0.1),
+                  ? AppColors.gold.withOpacity(0.2)
+                  : AppColors.emerald.withOpacity(0.15),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Center(
-              child: Text(
-                icon,
-                style: const TextStyle(fontSize: 24),
-              ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: isCurrent ? AppColors.gold : AppColors.textMuted,
             ),
           ),
           const SizedBox(width: 16),
@@ -421,7 +414,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
               name,
               style: TextStyle(
                 color: isCurrent ? AppColors.gold : AppColors.textLight,
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -430,7 +423,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
             time,
             style: TextStyle(
               color: isCurrent ? AppColors.gold : AppColors.textLight,
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.bold,
               fontFamily: 'DM Sans',
             ),
