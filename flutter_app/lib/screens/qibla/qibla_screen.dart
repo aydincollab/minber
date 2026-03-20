@@ -45,13 +45,13 @@ class _QiblaScreenState extends State<QiblaScreen>
         userLat = position.latitude;
         userLon = position.longitude;
         decl = 5.2; // approximate for Turkey
-        if (mounted) setState(() => _locationLabel = 'GPS konumunuza göre hesaplandı');
+
       } else {
         final cityCoords = _cityCoords(prefs.city);
         userLat = cityCoords.$1;
         userLon = cityCoords.$2;
         decl = _magneticDeclination(prefs.city);
-        if (mounted) setState(() => _locationLabel = '${prefs.city} şehir konumuna göre hesaplandı');
+
       }
 
       if (userLat != null && userLon != null) {
