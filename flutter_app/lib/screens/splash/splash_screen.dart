@@ -61,8 +61,10 @@ class _SplashScreenState extends State<SplashScreen>
     _riseController.forward();
     _starsController.forward();
 
-    // Play intro audio
-    _audioPlayer.play(AssetSource('audio/intro.mp3'));
+    // Play intro audio — wrapped so audio failure never crashes the app
+    try {
+      _audioPlayer.play(AssetSource('audio/intro.mp3'));
+    } catch (_) {}
 
     _navigateToNextScreen();
   }
