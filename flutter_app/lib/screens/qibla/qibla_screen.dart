@@ -263,34 +263,7 @@ class _QiblaScreenState extends State<QiblaScreen>
             ),
           ),
 
-          // Degree info
-          if (qibla != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 40),
-              child: Column(
-                children: [
-                  Text(
-                    '${qibla.toStringAsFixed(1)}°',
-                    style: const TextStyle(
-                      color: AppColors.gold,
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Pusula Kıble Açısı',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-                  ),
-                  if (_qiblaTrueBearing != null)
-                    Text(
-                      '(Coğrafi: ${_qiblaTrueBearing!.toStringAsFixed(1)}°)',
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-                    ),
-                ],
-              ),
-            ),
+
 
         ],
       ),
