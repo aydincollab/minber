@@ -14,7 +14,7 @@ if (keyPropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.minber.app"
+    namespace = "com.example.minber"   // package where MainActivity.kt lives
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
