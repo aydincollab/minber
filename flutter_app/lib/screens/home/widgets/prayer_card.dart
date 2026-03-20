@@ -105,53 +105,20 @@ class _PrayerCardState extends State<PrayerCard> {
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Column(
             children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Text(
-                        '📍',
-                        style: TextStyle(fontSize: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, size: 16, color: AppColors.gold),
+                    const SizedBox(width: 6),
+                    Text(
+                      widget.city ?? 'Konum Tespit Ediliyor...',
+                      style: const TextStyle(
+                        color: AppColors.textLight,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        widget.city ?? 'Konum Tespit Ediliyor...',
-                        style: const TextStyle(
-                          color: AppColors.textLight,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
                     ),
-                    decoration: BoxDecoration(
-                      color: AppColors.gold.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Text('⏱', style: TextStyle(fontSize: 12)),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Sıradaki: ${turkishNames[widget.prayerTimings!.nextPrayerName] ?? widget.prayerTimings!.nextPrayerName}',
-                          style: const TextStyle(
-                            color: AppColors.gold,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               const SizedBox(height: 20),
               
               // Prayer times
@@ -218,7 +185,7 @@ class _PrayerCardState extends State<PrayerCard> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('⏰', style: TextStyle(fontSize: 16)),
+                    const Icon(Icons.timer_outlined, size: 16, color: AppColors.dark),
                     const SizedBox(width: 8),
                     Text(
                       _countdown.isNotEmpty ? _countdown : 'Hesaplanıyor...',
