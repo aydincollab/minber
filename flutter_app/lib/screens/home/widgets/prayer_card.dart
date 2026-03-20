@@ -105,20 +105,46 @@ class _PrayerCardState extends State<PrayerCard> {
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Column(
             children: [
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, size: 16, color: AppColors.gold),
-                    const SizedBox(width: 6),
-                    Text(
-                      widget.city ?? 'Konum Tespit Ediliyor...',
-                      style: const TextStyle(
-                        color: AppColors.textLight,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 16, color: AppColors.gold),
+                      const SizedBox(width: 6),
+                      Text(
+                        widget.city ?? 'Konum Tespit Ediliyor...',
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.access_time, size: 12, color: AppColors.gold),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Sıradaki: ${turkishNames[widget.prayerTimings!.nextPrayerName] ?? widget.prayerTimings!.nextPrayerName}',
+                          style: const TextStyle(
+                            color: AppColors.gold,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
               
               // Prayer times
