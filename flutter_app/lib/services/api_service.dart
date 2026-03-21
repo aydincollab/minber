@@ -5,10 +5,10 @@ import '../models/hutbe.dart';
 import '../models/prayer_time.dart';
 
 class ApiService {
-  // Production URL (Railway)
-  static const String _prodUrl = 'https://minber-production.up.railway.app/api/v1';
-  // Development URL (Android emulator localhost)
-  static const String _devUrl = 'https://minber-production.up.railway.app/api/v1';
+  // Production URL (Render.com)
+  static const String _prodUrl = 'https://minber.onrender.com/api/v1';
+  // Development URL
+  static const String _devUrl = 'https://minber.onrender.com/api/v1';
   
   static String get baseUrl => kReleaseMode ? _prodUrl : _devUrl;
   
