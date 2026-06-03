@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
@@ -35,6 +36,7 @@ class _HutbeListScreenState extends State<HutbeListScreen> {
   String _selectedCategory = 'Tümü';
   int? _selectedYear;
   String _searchQuery = '';
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -47,6 +49,7 @@ class _HutbeListScreenState extends State<HutbeListScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     _connectivityService.removeListener(_onConnectivityChanged);
@@ -168,10 +171,13 @@ class _HutbeListScreenState extends State<HutbeListScreen> {
   }
 
   void _onSearch(String query) {
-    setState(() {
-      _searchQuery = query;
+    // Önceki timer'ı iptal et — kullanıcı yazmayı bırakmadan API çağrısı yapma
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      setState(() => _searchQuery = query);
+      _loadHutbeler();
     });
-    _loadHutbeler();
   }
 
   void _onCategorySelected(String category) {
